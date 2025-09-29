@@ -3,13 +3,8 @@
 #include "timedexecution.h"
 
 
-using StaticTimer10ms = StaticTimer<10>;
-using TimedExecution10ms = TimedExecution<StaticTimer10ms>;
-
-
-
-
-
+using StaticTimer1ms = StaticTimer<1>;
+using TimedExecution1ms = TimedExecution<StaticTimer1ms>;
 
 extern void initTimers();
 

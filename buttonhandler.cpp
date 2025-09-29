@@ -15,7 +15,7 @@ enum InternalButtonEvent : uint8_t {
 
 void emptyButtonHandler(ButtonEvent){}
 
-TimedExecution10ms buttonPressTimer;
+TimedExecution1ms buttonPressTimer;
 ButtonHandlerFunc buttonHandlerFuncPtr = emptyButtonHandler;
 
 
@@ -25,14 +25,14 @@ volatile uint8_t buttonEventMask = InternalButtonEvent::NO_EVENT;
 uint8_t internalButtonPin = 0xFF;
 
 
-void buttonPress(TimedExecution10ms& timer){
+void buttonPress(TimedExecution1ms& timer){
 	if(analogRead(internalButtonPin) > 800){
 		buttonEventMask = ButtonEvent::PRESSED;
 	}
 }
 
 
-void longPressHandlerFunc(TimedExecution10ms& timer){
+void longPressHandlerFunc(TimedExecution1ms& timer){
 	buttonEventMask = ButtonEvent::LONG_PRESSED;
 }
 

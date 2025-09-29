@@ -8,7 +8,7 @@
 #define SOFTPWM_OCR (F_CPU/(8UL*256UL*SOFTPWM_FREQ))
 
 
-struct LedAnimationStateTimer : public TimedExecution10ms{
+struct LedAnimationStateTimer : public TimedExecution1ms{
 	void assignAnimation(const AnimationDef* animationDef){
 		this->animationDef = animationDef;
 		this->direction = animationDef->direction;
@@ -72,7 +72,7 @@ static void setAnimationLed(LedDef led, uint8_t brightness, bool immediate = fal
 
 
 
-static void handleLedAnimation(TimedExecution10ms& timer){
+static void handleLedAnimation(TimedExecution1ms& timer){
 	LedAnimationStateTimer& processedAnimation =  reinterpret_cast<LedAnimationStateTimer&>(timer);  
     const AnimationStep* currentStep = processedAnimation.current();
 	uint16_t duration = currentStep->duration;
