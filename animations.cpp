@@ -19,28 +19,28 @@
 __VA_ARGS__,\
 ANIM_END\
 }
-static const AnimationStep breathingAnimSteps[] = {
+static const PROGMEM AnimationStep breathingAnimSteps[] = {
     
     AnimationStep{.brightness = 95, .duration = 700},
     AnimationStep{.brightness = 10, .duration = 800},
 };
-static const AnimationStep breathingAnimDelayedSteps[] = {
+static const PROGMEM AnimationStep breathingAnimDelayedSteps[] = {
     STEP_DELAY(1000),
     AnimationStep{.brightness = 95, .duration = 2000},
     AnimationStep{.brightness = 10, .duration = 2000},
 };
 
-static const AnimationStep slowBreathingAnimSteps[] = {
+static const PROGMEM AnimationStep slowBreathingAnimSteps[] = {
     AnimationStep{.brightness = 0, .duration = 800},
     AnimationStep{.brightness = 95, .duration = 900},
     
 };
-static const AnimationStep flowAnimSteps[] = {
+static const PROGMEM AnimationStep flowAnimSteps[] = {
     AnimationStep{.brightness = 25, .duration = 700},
     AnimationStep{.brightness = 95, .duration = 800},
     
 };
-static const AnimationStep segmentedFlowAnimSteps[] = {
+static const PROGMEM AnimationStep segmentedFlowAnimSteps[] = {
     AnimationStep{.brightness = 95, .duration = 300},
 	AnimationStep{.brightness = 20, .duration = 300},
     
@@ -48,7 +48,7 @@ static const AnimationStep segmentedFlowAnimSteps[] = {
     
 };
 
-static const AnimationStep leftRightFlowMidAnimSteps[] = {
+static const PROGMEM AnimationStep leftRightFlowMidAnimSteps[] = {
     AnimationStep{.brightness = 95, .duration = 500},
 	AnimationStep{.brightness = 20, .duration = 500},
 
@@ -62,7 +62,7 @@ static const AnimationStep leftRightFlowMidAnimSteps[] = {
 // LEFT RIGHT KIT-RIDER
 constexpr uint16_t leftRightflowOffset = 1500;
 
-static const AnimationStep leftRightFlowLeftFrontAnimSteps[] = {
+static const PROGMEM AnimationStep leftRightFlowLeftFrontAnimSteps[] = {
     AnimationStep{.brightness = 95, .duration = 500},
 	AnimationStep{.brightness = 20, .duration = 500},
 	STEP_DELAY(1000),
@@ -70,7 +70,7 @@ static const AnimationStep leftRightFlowLeftFrontAnimSteps[] = {
 	AnimationStep{.brightness = 20, .duration = 500},
 	STEP_DELAY(leftRightflowOffset)
 };
-static const AnimationStep leftRightFlowLeftMiddleAnimSteps[] = {
+static const PROGMEM AnimationStep leftRightFlowLeftMiddleAnimSteps[] = {
 	AnimationStep{.brightness = 95, .duration = 500},
 	AnimationStep{.brightness = 20, .duration = 500},
 	STEP_DELAY(500),
@@ -78,7 +78,7 @@ static const AnimationStep leftRightFlowLeftMiddleAnimSteps[] = {
 	AnimationStep{.brightness = 20, .duration = 500},
 	STEP_DELAY(500 + leftRightflowOffset),
 };
-static const AnimationStep leftRightFlowLeftBackAnimSteps[] = {
+static const PROGMEM AnimationStep leftRightFlowLeftBackAnimSteps[] = {
 	AnimationStep{.brightness = 95, .duration = 500},
 	AnimationStep{.brightness = 20, .duration = 500},
 	//STEP_DELAY(rightFlowOffset),
@@ -91,7 +91,7 @@ static const AnimationStep leftRightFlowLeftBackAnimSteps[] = {
 
 
 
-static const AnimationStep leftRightFlowRightFrontAnimSteps[] = {
+static const PROGMEM AnimationStep leftRightFlowRightFrontAnimSteps[] = {
     AnimationStep{.brightness = 95, .duration = 500},
 	AnimationStep{.brightness = 20, .duration = 500},
 	STEP_DELAY(1000+leftRightflowOffset),
@@ -99,7 +99,7 @@ static const AnimationStep leftRightFlowRightFrontAnimSteps[] = {
 	AnimationStep{.brightness = 20, .duration = 500},
 	//STEP_DELAY(500)
 };
-static const AnimationStep leftRightFlowRightMiddleAnimSteps[] = {
+static const PROGMEM AnimationStep leftRightFlowRightMiddleAnimSteps[] = {
 	AnimationStep{.brightness = 95, .duration = 500},
 	AnimationStep{.brightness = 20, .duration = 500},
 	STEP_DELAY(500+leftRightflowOffset),
@@ -107,7 +107,7 @@ static const AnimationStep leftRightFlowRightMiddleAnimSteps[] = {
 	AnimationStep{.brightness = 20, .duration = 500},
 	STEP_DELAY(500),
 };
-static const AnimationStep leftRightFlowRightBackAnimSteps[] = {
+static const PROGMEM AnimationStep leftRightFlowRightBackAnimSteps[] = {
 	AnimationStep{.brightness = 95, .duration = 500},
 	AnimationStep{.brightness = 20, .duration = 500},
 	STEP_DELAY(leftRightflowOffset),
@@ -119,12 +119,12 @@ static const AnimationStep leftRightFlowRightBackAnimSteps[] = {
 
 
 
-static const AnimationStep NoEffectSteps[] = {
+static const PROGMEM AnimationStep NoEffectSteps[] = {
 	AnimationStep{.brightness = 95, .duration = 0},
 	STEP_DELAY(1000)
 };
 
-static const AnimationStep disableSteps[] = {
+static const PROGMEM AnimationStep disableSteps[] = {
 	AnimationStep{.brightness = 0, .duration = 0},
 	STEP_DELAY(1000)
 };
@@ -133,55 +133,55 @@ static const AnimationStep disableSteps[] = {
 
 // DRUM AND BASS
 constexpr uint16_t beatDuration = 340;
-static const AnimationStep dnbSnaresTimingsSteps[] = {
+static const PROGMEM AnimationStep dnbSnaresTimingsSteps[] = {
 
-//snare
-AnimationStep{.brightness = 100, .duration = 0},
-STEP_DELAY(20),
-//snare
-AnimationStep{.brightness = 20, .duration = 0},
-STEP_DELAY(beatDuration - 20),
-
-};
-static const AnimationStep dnbSnaresFastTimingsSteps[] = {
-
-//snare
-AnimationStep{.brightness = 100, .duration = 0},
-STEP_DELAY(10),
-//snare
-AnimationStep{.brightness = 20, .duration = 0},
-STEP_DELAY(beatDuration - 10),
+	//snare
+	AnimationStep{.brightness = 100, .duration = 0},
+	STEP_DELAY(20),
+	//snare
+	AnimationStep{.brightness = 20, .duration = 0},
+	STEP_DELAY(beatDuration - 20),
 
 };
-static const AnimationStep dnbKickTimingsSteps[] = {
-//kick
-AnimationStep{.brightness = 100, .duration = 0},
-STEP_DELAY(50),
-//kick
-AnimationStep{.brightness = 20, .duration = 0},
-STEP_DELAY(beatDuration - 50),
+static const PROGMEM AnimationStep dnbSnaresFastTimingsSteps[] = {
+
+	//snare
+	AnimationStep{.brightness = 100, .duration = 0},
+	STEP_DELAY(10),
+	//snare
+	AnimationStep{.brightness = 20, .duration = 0},
+	STEP_DELAY(beatDuration - 10),
+
+};
+static const PROGMEM AnimationStep dnbKickTimingsSteps[] = {
+	//kick
+	AnimationStep{.brightness = 100, .duration = 0},
+	STEP_DELAY(50),
+	//kick
+	AnimationStep{.brightness = 20, .duration = 0},
+	STEP_DELAY(beatDuration - 50),
 
 
-//kick
-AnimationStep{.brightness = 100, .duration = 0},
-STEP_DELAY(50),
-//kick
-AnimationStep{.brightness = 20, .duration = 0},
-STEP_DELAY(beatDuration - 50),
+	//kick
+	AnimationStep{.brightness = 100, .duration = 0},
+	STEP_DELAY(50),
+	//kick
+	AnimationStep{.brightness = 20, .duration = 0},
+	STEP_DELAY(beatDuration - 50),
 
-STEP_DELAY(100),
-//kick
-AnimationStep{.brightness = 100, .duration = 10},
-STEP_DELAY(10),
-//kick
-AnimationStep{.brightness = 20, .duration = 10},
-STEP_DELAY(beatDuration - 30),
-//kick
-AnimationStep{.brightness = 100, .duration = 10},
-STEP_DELAY(10),
-//kick
-AnimationStep{.brightness = 20, .duration = 10},
-STEP_DELAY(beatDuration - 30),
+	STEP_DELAY(100),
+	//kick
+	AnimationStep{.brightness = 100, .duration = 10},
+	STEP_DELAY(10),
+	//kick
+	AnimationStep{.brightness = 20, .duration = 10},
+	STEP_DELAY(beatDuration - 30),
+	//kick
+	AnimationStep{.brightness = 100, .duration = 10},
+	STEP_DELAY(10),
+	//kick
+	AnimationStep{.brightness = 20, .duration = 10},
+	STEP_DELAY(beatDuration - 30),
 
 };
 /*
@@ -214,11 +214,11 @@ AnimationStep dnbTimingsSteps[] = {
 	STEP_DELAY(beatDuration - 50 - 80-30-30)
 };*/
 
-static const AnimationDef allLedsOnAnim[] = DEFINE_ANIMATION(
+static const PROGMEM AnimationDef allLedsOnAnim[] = DEFINE_ANIMATION(
 	ALL_LEDS_ANIMATION_HELPER(AnimationDirection::FORWARD, MAKE_SPAN(NoEffectSteps))	
 );
 
-static const AnimationDef dmbBeatAnimation[] = DEFINE_ANIMATION(
+static const PROGMEM AnimationDef dmbBeatAnimation[] = DEFINE_ANIMATION(
 	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(dnbKickTimingsSteps)),
 	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(dnbSnaresTimingsSteps)),
 	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(dnbSnaresFastTimingsSteps)),
@@ -229,7 +229,7 @@ static const AnimationDef dmbBeatAnimation[] = DEFINE_ANIMATION(
 );
 
 
-static const AnimationDef leftRightAnim[] = DEFINE_ANIMATION(
+static const PROGMEM AnimationDef leftRightAnim[] = DEFINE_ANIMATION(
 		AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps), 400),
 		AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps), 400),
 		AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps), 400),
@@ -237,7 +237,7 @@ static const AnimationDef leftRightAnim[] = DEFINE_ANIMATION(
 		AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps)),
 		AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps))
 );
-static const AnimationDef segmentedFlowAnim[] = DEFINE_ANIMATION(
+static const PROGMEM AnimationDef segmentedFlowAnim[] = DEFINE_ANIMATION(
 	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::BIDIRECTIONAL_FORWARD, MAKE_SPAN(segmentedFlowAnimSteps), 0),
 	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::BIDIRECTIONAL_FORWARD, MAKE_SPAN(segmentedFlowAnimSteps), 450),
 	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::BIDIRECTIONAL_FORWARD, MAKE_SPAN(segmentedFlowAnimSteps), 900),
@@ -245,7 +245,7 @@ static const AnimationDef segmentedFlowAnim[] = DEFINE_ANIMATION(
 	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::BIDIRECTIONAL_FORWARD, MAKE_SPAN(segmentedFlowAnimSteps), 450),
 	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::BIDIRECTIONAL_FORWARD, MAKE_SPAN(segmentedFlowAnimSteps), 900)
 );
-static const AnimationDef leftRightFlowAnim[] = DEFINE_ANIMATION(
+static const PROGMEM AnimationDef leftRightFlowAnim[] = DEFINE_ANIMATION(
 	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(leftRightFlowLeftFrontAnimSteps), 0 + leftRightflowOffset/2),
 	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(leftRightFlowLeftMiddleAnimSteps), 250 + leftRightflowOffset/2),
 	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(leftRightFlowLeftBackAnimSteps), 500 + leftRightflowOffset/2),
@@ -254,11 +254,11 @@ static const AnimationDef leftRightFlowAnim[] = DEFINE_ANIMATION(
 	AnimationDef(LedPosition::RIGHT_FRONT,    	AnimationDirection::FORWARD, MAKE_SPAN(leftRightFlowRightBackAnimSteps), 500)
 );
 
-static const AnimationDef slowBreathingAnimation[] = DEFINE_ANIMATION(
+static const PROGMEM AnimationDef slowBreathingAnimation[] = DEFINE_ANIMATION(
 	ALL_LEDS_ANIMATION_HELPER(AnimationDirection::BIDIRECTIONAL_FORWARD, MAKE_SPAN(slowBreathingAnimSteps))
 );
 
-static const AnimationDef flowAnimation[] = DEFINE_ANIMATION(
+static const PROGMEM AnimationDef flowAnimation[] = DEFINE_ANIMATION(
 		AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 0),
 		AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 300),
 		AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 600),
@@ -267,7 +267,7 @@ static const AnimationDef flowAnimation[] = DEFINE_ANIMATION(
 		AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 600)
 );
 
-static const AnimationDef turnOffLedsAnimation[] = DEFINE_ANIMATION(
+static const PROGMEM AnimationDef turnOffLedsAnimation[] = DEFINE_ANIMATION(
 	ALL_LEDS_ANIMATION_HELPER(AnimationDirection::FORWARD, MAKE_SPAN(disableSteps))
 );
 
@@ -343,7 +343,7 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 
 
 void initAnimationsSwitcher(){
-	//setAnimation(turnOffLedsAnimation);
+	//setAnimation(dmbBeatAnimation);
 	setButtonHandlerFunc(buttonSwitchAnimationHandler);
 
 

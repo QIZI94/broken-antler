@@ -7,11 +7,12 @@
 #define SOFTPWM_FREQ 120
 #define SOFTPWM_OCR (F_CPU/(8UL*256UL*SOFTPWM_FREQ))
 
+#define PROGMEM_READ_STRUCTURE(p_dst, p_src) do { memcpy_P(p_dst, p_src, sizeof(*p_dst));} while (0)
 
 struct LedAnimationStateTimer : public TimedExecution1ms{
-	void assignAnimation(const AnimationDef* animationDef){
+	void assignAnimation(const AnimationDef* animationDef, AnimationDirection direction){
 		this->animationDef = animationDef;
-		this->direction = animationDef->direction;
+		this->direction = direction;
 		current(nullptr);
 	}
 
@@ -73,12 +74,17 @@ static void setAnimationLed(LedDef led, uint8_t brightness, bool immediate = fal
 
 
 static void handleLedAnimation(TimedExecution1ms& timer){
-	LedAnimationStateTimer& processedAnimation =  reinterpret_cast<LedAnimationStateTimer&>(timer);  
-    const AnimationStep* currentStep = processedAnimation.current();
+	LedAnimationStateTimer& processedAnimation =  reinterpret_cast<LedAnimationStateTimer&>(timer);
+	AnimationStep loadedStep = {};
+	PROGMEM_READ_STRUCTURE(&loadedStep, processedAnimation.current());
+    const AnimationStep* currentStep = &loadedStep;
 	uint16_t duration = currentStep->duration;
-
+	
+	AnimationDef loadedAnimDef(LedPosition::LEFT_BACK, AnimationDirection::FORWARD, SequentialAnimationStepSpan(nullptr, nullptr));
+	PROGMEM_READ_STRUCTURE(&loadedAnimDef, processedAnimation.animationDef);
+	const SequentialAnimationStepSpan* steps = &loadedAnimDef.stepSpan;
 	if(!currentStep->isDelay()){
-		LedDef led = LED_AllLeds[size_t(processedAnimation.animationDef->ledPosition)];
+		LedDef led = LED_AllLeds[size_t(loadedAnimDef.ledPosition)];
 		SoftPWMSetFadeTime(led.blue.pin, duration, duration);
 		SoftPWMSetFadeTime(led.red.pin, duration, duration);
 		setAnimationLed(led, currentStep->brightness);
@@ -87,30 +93,30 @@ static void handleLedAnimation(TimedExecution1ms& timer){
     switch(processedAnimation.direction){
 		
         case AnimationDirection::FORWARD:
-            if(processedAnimation.next() == processedAnimation.end()){
-                processedAnimation.current(processedAnimation.begin());
+            if(processedAnimation.next() == steps->end()){
+                processedAnimation.current(steps->begin());
             }
             break;
         case AnimationDirection::BIDIRECTIONAL_FORWARD:
-            if(processedAnimation.next() == processedAnimation.end()){
-                processedAnimation.current(processedAnimation.rbegin());
-				if(processedAnimation.prev() == processedAnimation.rend()){
-					processedAnimation.current(processedAnimation.rbegin());
+            if(processedAnimation.next() == steps->end()){
+                processedAnimation.current(steps->rbegin());
+				if(processedAnimation.prev() == steps->rend()){
+					processedAnimation.current(steps->rbegin());
 				}
                 processedAnimation.direction = AnimationDirection::BIDIRECTIONAL_BACKWARD;
             }
             break;
         
         case AnimationDirection::BACKWARD:
-            if(processedAnimation.prev() == processedAnimation.rend()){
-                processedAnimation.current(processedAnimation.rbegin());
+            if(processedAnimation.prev() == steps->rend()){
+                processedAnimation.current(steps->rbegin());
             }
 			break;
         case AnimationDirection::BIDIRECTIONAL_BACKWARD:
-            if(processedAnimation.prev() == processedAnimation.rend()){
-				processedAnimation.current(processedAnimation.begin());
-				if(processedAnimation.next() == processedAnimation.end()){
-					processedAnimation.current(processedAnimation.begin());
+            if(processedAnimation.prev() == steps->rend()){
+				processedAnimation.current(steps->begin());
+				if(processedAnimation.next() == steps->end()){
+					processedAnimation.current(steps->begin());
 				}
                 
                 processedAnimation.direction = AnimationDirection::BIDIRECTIONAL_FORWARD;
@@ -128,36 +134,45 @@ static void startAnimation(const AnimationDef* animation){
 		animStateTimer.timer.disable();
 	}
 
+	if(animation != nullptr){
+		const AnimationDef* animationIt = animation;
+		size_t animationIndex = 0;
 
-    const AnimationDef* animationIt = animation;
-	size_t animationIndex = 0;
-
-    while(animationIt->isValid()){
-
-        LedAnimationStateTimer& animStateTimer = ledAnimationTimers[animationIndex];
+		AnimationDef loadedAnimDef(LedPosition::LEFT_BACK, AnimationDirection::FORWARD, SequentialAnimationStepSpan(nullptr, nullptr));;
 		
-		animStateTimer.assignAnimation(animationIt);
-		
-        switch(animationIt->direction){
-            case AnimationDirection::BIDIRECTIONAL_FORWARD:
-            case AnimationDirection::FORWARD:
 
-                animStateTimer.current(animStateTimer.begin());
-                break;
-            
-            case AnimationDirection::BIDIRECTIONAL_BACKWARD:
-            case AnimationDirection::BACKWARD:
-                animStateTimer.current(animStateTimer.rbegin());
-                break;
-            
-        }
+		while(true){
+			PROGMEM_READ_STRUCTURE(&loadedAnimDef, animationIt);
+			if(!loadedAnimDef.isValid()){
+				break;
+			}
+			const SequentialAnimationStepSpan* steps = &loadedAnimDef.stepSpan;
 
-		animStateTimer.setup(handleLedAnimation, animationIt->initialDelay);
-		
-		animationIndex++;
-        animationIt++;
-		
-    }
+			LedAnimationStateTimer& animStateTimer = ledAnimationTimers[animationIndex];
+			
+			animStateTimer.assignAnimation(animationIt, loadedAnimDef.direction);
+			
+			switch(loadedAnimDef.direction){
+				case AnimationDirection::BIDIRECTIONAL_FORWARD:
+				case AnimationDirection::FORWARD:
+
+					animStateTimer.current(steps->begin());
+					break;
+				
+				case AnimationDirection::BIDIRECTIONAL_BACKWARD:
+				case AnimationDirection::BACKWARD:
+					animStateTimer.current(steps->rbegin());
+					break;
+				
+			}
+
+			animStateTimer.setup(handleLedAnimation, loadedAnimDef.initialDelay);
+			
+			animationIndex++;
+			animationIt++;
+			
+		}
+	}
 	for(LedDef led : LED_AllLeds){
 		SoftPWMSetFadeTime(led.blue.pin, 0, 0);
 		SoftPWMSetFadeTime(led.red.pin, 0, 0);
