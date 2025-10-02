@@ -36,17 +36,19 @@ public:
     }
 
     void disable(){
-        if(prev != nullptr)
-            prev->next = next;
-        else{
-            *getTimersListBegin() = next;
-        }
-        
-        if(next != nullptr)
-            next->prev = prev;
-        
-        prev = nullptr;
-        next = nullptr;
+		if(isEnabled()){
+			if(prev != nullptr)
+				prev->next = next;
+			else{
+				*getTimersListBegin() = next;
+			}
+			
+			if(next != nullptr)
+				next->prev = prev;
+			
+			prev = nullptr;
+			next = nullptr;
+		}
     }
 
     void reset(uint32_t interval){ // in ms
@@ -59,7 +61,7 @@ public:
 	}
 
     // checks if time set by reset(us) has elapsed since 
-    bool isDown() const{
+    volatile bool isDown() const{
         return (countdown == 0);
     }
 
