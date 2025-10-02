@@ -131,7 +131,6 @@ static void startAnimation(const AnimationDef* animation){
 	
 	for(LedAnimationStateTimer& animStateTimer : ledAnimationTimers){
 		animStateTimer.disable();
-		animStateTimer.timer.disable();
 	}
 
 	if(animation != nullptr){
