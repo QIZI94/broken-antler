@@ -11,8 +11,17 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
+#define BUTTON_HANDLER_SAMPLING_TIME_MS uint16_t(1)
+
 volatile bool buttonInterruptHappen = false;
 volatile ButtonEvent lastState = ButtonEvent::RELEASED;
+
+TimedExecution1ms buttonHandlerTimer;
+
+void timedButtonHandler(TimedExecution1ms&){
+	handleButtonEvents();
+	buttonHandlerTimer.restart(BUTTON_HANDLER_SAMPLING_TIME_MS);
+}
 
 void printButtonHandler(ButtonEvent state){
 	lastState = state;
@@ -33,13 +42,14 @@ void setup()
 	Serial.println("Begining initialization");
 
 
-	initTimers();
 
 	initButtonHandler(A6);
+	buttonHandlerTimer.setup(timedButtonHandler, BUTTON_HANDLER_SAMPLING_TIME_MS);
 	
 
 	initAnimations();
 	initAnimationsSwitcher();
+	initTimers();
 /*
 
 	if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
@@ -156,7 +166,7 @@ void loop()
 	buttonInterruptHappen = false;
 	
   }
-  handleButtonEvents();
+
   handleAnimations();
   //Serial.println(analogRead(A7));
   //attachInterrupt(digitalPinToInterrupt(A3))

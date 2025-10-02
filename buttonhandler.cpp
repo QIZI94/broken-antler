@@ -40,9 +40,6 @@ void longPressHandlerFunc(TimedExecution1ms& timer){
 void initButtonHandler(uint8_t buttonPin){
 	buttonEventMask = InternalButtonEvent::NO_EVENT;
 	internalButtonPin = buttonPin;
-	//longPressTimer.disable();
-
-	
 }
 
 void setButtonHandlerFunc(ButtonHandlerFunc buttonHandler){
@@ -76,19 +73,13 @@ void handleButtonEvents(){
 	{
 		case ButtonEvent::PRESSED:
 			buttonPressTimer.setup(longPressHandlerFunc, LONG_PRESS_TIME);
-			Serial.println("PRESSED");	
 		case ButtonEvent::LONG_PRESSED: 
 			
-			
 			buttonHandlerFuncPtr(ButtonEvent(buttonEventMask));
-			if(buttonEventMask == ButtonEvent::LONG_PRESSED){
-				Serial.println("LONG_PRESS");
-			}
 			buttonEventMask = InternalButtonEvent::NOT_RELEASED;
 			break;
 		case ButtonEvent::RELEASED:
 			buttonHandlerFuncPtr(ButtonEvent(buttonEventMask));
-			Serial.println("RELEASED");
 			buttonEventMask = InternalButtonEvent::NO_EVENT;
 		default:
 			break;
