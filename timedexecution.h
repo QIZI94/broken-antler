@@ -5,11 +5,6 @@
 
 template<class TimerBase>
 class TimedExecution{
-private: // functions
-static volatile TimedExecution** getTimedExecutionListBegin(){
-	volatile static TimedExecution* listBegin = nullptr;
-	return &listBegin;
-}
 public: // types
 	using ExecFunPtr = void (*)(TimedExecution&);
 	using StaticTimerBase = TimerBase;
@@ -75,10 +70,6 @@ public: // types
 	
 public: // functions
 
-    TimedExecution(){
-        // register timer upon creating the instance into doubly linked list
-        //enable();
-    }
     ~TimedExecution(){
         // unregister timer upon destruction,
         // this more of a memory safety measure if timer is defined on stack and function goes out of scope it will remove it-self
@@ -98,6 +89,7 @@ public: // functions
                 *begin = this;
             }
         }
+		timer.enable();
     }
 
     void disable(){
@@ -114,6 +106,7 @@ public: // functions
 			prev = nullptr;
 			next = nullptr;
 		}
+		timer.disable();
     }
 
     bool isEnabled() const{
@@ -129,16 +122,17 @@ public: // functions
 		timer.reset(interval);
 		if(enableTimer){
 			enable();
-			timer.enable();
 		}
 	}
 
 	void restart(uint32_t interval){
 		timer.reset(interval);
 		enable();
-		timer.enable();
 	}
-    
+	const StaticTimerBase& getTimer() const {
+		return timer;
+	}
+private: // functions
     void exec(){
         if(execPtr != nullptr){
             if(timer.isDown()){
@@ -147,7 +141,7 @@ public: // functions
             }
         }
     }
-    
+public: // static functions
     // this function will be called by timer interrupt and handle registered timers countdowns
     static void executeAllTimedExecutions(){
         TimedExecution* currentTimedExecution = *getTimedExecutionListBegin();
@@ -163,7 +157,24 @@ public: // functions
 		debugFunc(List(), DebugStage::AfterExecution);
 #endif
     }
-private: // functions
+
+	static uint32_t TimedExecutionsCount(){
+		uint32_t count = 0;
+
+		volatile TimedExecution* currentTimer = *getTimedExecutionListBegin();
+
+        while(currentTimer != nullptr){
+            ++count;
+            currentTimer = currentTimer->next;
+        }
+		return count;
+	}
+private: // static functions
+	//basically a singelthon which will return pointer to a pointer of the beging of managed linked list
+	static volatile TimedExecution** getTimedExecutionListBegin(){
+		volatile static TimedExecution* listBegin = nullptr;
+		return &listBegin;
+	}
 #ifdef DEBUG_TIMED_EXECUTION
 	static void noDebugFunc(const List&, DebugStage){}
 	static DebugFuncPtr* GetDebugRoutine(){
@@ -182,11 +193,8 @@ public: // functions
 #endif
 	}
 
-public: // variables
+private: // variables 
 	StaticTimerBase timer;
-
-private: // variables
-    //basically a singelthon which will return pointer to a pointer of the beging of managed linked list
 
 	
     volatile TimedExecution* prev = nullptr;
