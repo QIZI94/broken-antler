@@ -16,13 +16,13 @@ enum InternalButtonEvent : uint8_t {
 void emptyButtonHandler(ButtonEvent){}
 
 TimedExecution1ms buttonPressTimer;
-ButtonHandlerFunc buttonHandlerFuncPtr = emptyButtonHandler;
+volatile ButtonHandlerFunc buttonHandlerFuncPtr = emptyButtonHandler;
 
 
 
 
 volatile uint8_t buttonEventMask = InternalButtonEvent::NO_EVENT;
-uint8_t internalButtonPin = 0xFF;
+volatile uint8_t internalButtonPin = 0xFF;
 
 
 void buttonPress(TimedExecution1ms& timer){
