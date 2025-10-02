@@ -268,7 +268,7 @@ static const PROGMEM AnimationDef flowAnimation[] = DEFINE_ANIMATION(
 );
 
 static const PROGMEM AnimationDef turnOffLedsAnimation[] = DEFINE_ANIMATION(
-	ALL_LEDS_ANIMATION_HELPER(AnimationDirection::FORWARD, MAKE_SPAN(disableSteps))
+	ALL_LEDS_ANIMATION_HELPER(AnimationDirection::FORWARD, SequentialAnimationStepSpan(nullptr, nullptr))
 );
 
 
