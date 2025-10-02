@@ -5,62 +5,75 @@
 
 template<class TimerBase>
 class TimedExecution{
-public:
-using ExecFunPtr = void (*)(TimedExecution&);
-using StaticTimerBase = TimerBase;
-public:
+private: // functions
+static volatile TimedExecution** getTimedExecutionListBegin(){
+	volatile static TimedExecution* listBegin = nullptr;
+	return &listBegin;
+}
+public: // types
+	using ExecFunPtr = void (*)(TimedExecution&);
+	using StaticTimerBase = TimerBase;
+
+	enum class DebugStage: uint8_t {
+		BeforeExecution,
+		AfterExecution
+	};
 
 	struct List{
-		class const_iterator{
+		class ConstIterator{
 		public:
-			const_iterator(const TimedExecution* timedExec){
+			ConstIterator(const TimedExecution* timedExec){
 				timedExecution = timedExec;
 			}
-			const_iterator(const const_iterator& other){
+			ConstIterator(const ConstIterator& other){
 				timedExecution = other.timedExecution;
 			}
-			//const_iterator& operator=(const const_iterator&);
-    		const_iterator& operator++(){
-				timedExecution = next();
+			//ConstIterator& operator=(const ConstIterator&);
+    		ConstIterator& operator++(){
+				*this = next();
 				return *this;
 			}
 
-			const_iterator& operator--(){
-				timedExecution = previous();
+			ConstIterator& operator--(){
+				*this = previous();
 				return *this;
 			}
 
 			const TimedExecution* operator->() const {return timedExecution;};
 			const TimedExecution& operator*() const {return *timedExecution;};
-  			bool operator==(const const_iterator& rhs) const {return timedExecution==rhs.timedExecution;}
-  			bool operator!=(const const_iterator& rhs) const {return timedExecution!=rhs.timedExecution;}
+  			bool operator==(const ConstIterator& rhs) const {return timedExecution==rhs.timedExecution;}
+  			bool operator!=(const ConstIterator& rhs) const {return timedExecution!=rhs.timedExecution;}
 			
-			const TimedExecution* next() const {
-				return timedExecution->next;
+			const ConstIterator next() const {
+				return ConstIterator(timedExecution->next);
 			}
 
-			const TimedExecution* previous() const {
-				return timedExecution->prev;
+			const ConstIterator previous() const {
+				return ConstIterator(timedExecution->prev);
 			}
 
 		//private:
 			const TimedExecution* timedExecution;
 		};
 		
-		List() = delete;
+		
+		List(ConstIterator begin = ConstIterator(*getTimedExecutionListBegin()), ConstIterator end = ConstIterator(nullptr)) : _begin(begin), _end(end) {}
+		
+		ConstIterator cbegin() const {
+			return _begin;
+		}
+		ConstIterator cend() const {
+			return _end;
+		}
 
-		static const_iterator begin(){
-			return const_iterator(*getTimedExecutionListBegin());
-		}
-		static const_iterator end(){
-			return const_iterator(nullptr);
-		}
-
-		static volatile TimedExecution** getTimedExecutionListBegin(){
-			volatile static TimedExecution* listBegin = nullptr;
-			return &listBegin;
-		}
+		private:
+		ConstIterator _begin;
+		ConstIterator _end;
 	};
+
+	using DebugFuncPtr = void (*)(const List&, DebugStage);
+	
+public: // functions
 
     TimedExecution(){
         // register timer upon creating the instance into doubly linked list
@@ -75,7 +88,7 @@ public:
     // enables countdown by tickAllTimers() function
     void enable(){
         if(!isEnabled()){
-            volatile TimedExecution** begin = List::getTimedExecutionListBegin();
+            volatile TimedExecution** begin = getTimedExecutionListBegin();
             if(*begin == nullptr){
                 *begin = this;
             }
@@ -88,21 +101,23 @@ public:
     }
 
     void disable(){
-        if(prev != nullptr)
-            prev->next = next;
-        else{
-            *List::getTimedExecutionListBegin() = next;
-        }
-        
-        if(next != nullptr)
-            next->prev = prev;
-        
-        prev = nullptr;
-        next = nullptr;
+		if(isEnabled()){
+			if(prev != nullptr)
+				prev->next = next;
+			else{
+				*getTimedExecutionListBegin() = next;
+			}
+			
+			if(next != nullptr)
+				next->prev = prev;
+			
+			prev = nullptr;
+			next = nullptr;
+		}
     }
 
     bool isEnabled() const{
-        return (prev != nullptr || next != nullptr || this == *List::getTimedExecutionListBegin());
+        return (prev != nullptr || next != nullptr || this == *getTimedExecutionListBegin());
     }
 
 	void setExecFunction(ExecFunPtr exec){
@@ -135,17 +150,42 @@ public:
     
     // this function will be called by timer interrupt and handle registered timers countdowns
     static void executeAllTimedExecutions(){
-        TimedExecution* currentTimedExecution = *List::getTimedExecutionListBegin();
-
+        TimedExecution* currentTimedExecution = *getTimedExecutionListBegin();
+#ifdef DEBUG_TIMED_EXECUTION
+		DebugFuncPtr debugFunc = *GetDebugRoutine();
+		debugFunc(List(), DebugStage::BeforeExecution);
+#endif
         while(currentTimedExecution != nullptr){
            	currentTimedExecution->exec();
             currentTimedExecution = currentTimedExecution->next;
         }
+#ifdef DEBUG_TIMED_EXECUTION
+		debugFunc(List(), DebugStage::AfterExecution);
+#endif
     }
-public:
+private: // functions
+#ifdef DEBUG_TIMED_EXECUTION
+	static void noDebugFunc(const List&, DebugStage){}
+	static DebugFuncPtr* GetDebugRoutine(){
+		static DebugFuncPtr g_debugFuncPtr = &noDebugFunc;
+		return &g_debugFuncPtr;
+	}
+#endif
+
+public: // functions
+	static void SetDebugRoutine(DebugFuncPtr debugFuncPtr){
+#ifdef DEBUG_TIMED_EXECUTION
+		if(debugFuncPtr == nullptr){
+			debugFuncPtr = noDebugFunc;
+		}
+		*GetDebugRoutine() = debugFuncPtr;
+#endif
+	}
+
+public: // variables
 	StaticTimerBase timer;
 
-private:
+private: // variables
     //basically a singelthon which will return pointer to a pointer of the beging of managed linked list
 
 	
