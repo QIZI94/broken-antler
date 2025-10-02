@@ -3,17 +3,12 @@
 
 #include <inttypes.h>
 
-template<uint32_t TICK_VALUE_MS = 1>
+template<uint32_t TICK_VALUE_AMOUNT = 1>
 class StaticTimer{
 
 public:
-	static constexpr uint32_t TICK_VALUE = TICK_VALUE_MS;
+	static constexpr uint32_t TICK_VALUE = TICK_VALUE_AMOUNT;
 public:
-    StaticTimer(){
-        // register timer upon creating the instance into doubly linked list
-        enable();
-        
-    }
     ~StaticTimer(){
         // unregister timer upon destruction,
         // this more of a memory safety measure if timer is defined on stack and function goes out of scope it will remove it-self
@@ -51,17 +46,25 @@ public:
 		}
     }
 
-    void reset(uint32_t interval){ // in ms
-		//enable();
+    void reset(uint32_t interval){
         countdown = interval/TICK_VALUE;
     }
 
-	bool getCurrentCountDown() const {
+	void restart(uint32_t interval){
+		reset();
+		enable();
+	}
+
+	uint32_t getCurrentCountDown() const {
 		return countdown;
+	}
+	
+	uint32_t getRemainingTime() const {
+		return countdown*TICK_VALUE;
 	}
 
     // checks if time set by reset(us) has elapsed since 
-    volatile bool isDown() const{
+    bool isDown() const{
         return (countdown == 0);
     }
 
@@ -79,7 +82,19 @@ public:
         }
     }
 
-private:
+	static uint32_t TimersCount(){
+		uint32_t count = 0;
+
+		volatile StaticTimer* currentTimer = *getTimersListBegin();
+
+        while(currentTimer != nullptr){
+            ++count;
+            currentTimer = currentTimer->next;
+        }
+		return count;
+	}
+
+private: // static functions
     //basically a singelthon which will return pointer to a pointer of the beging of managed linked list
     static volatile StaticTimer** getTimersListBegin(){
         volatile static StaticTimer* begin = nullptr;
@@ -88,11 +103,14 @@ private:
 
     // one tick -> decrease of countdown, amount is defined by countAmount(and will be specific for hardware timer used)
     void tick(){
-		volatile StaticTimer* currentTimer = this;
-        if(!currentTimer->isDown()){
-            currentTimer->countdown -= 1;
+        if(!isDown()){
+            countdown -= 1;
         }
+		else{
+			disable();
+		}
     }
+private: // variables
     volatile uint32_t countdown = 0;
     volatile StaticTimer* prev = nullptr;
     volatile StaticTimer* next = nullptr;
