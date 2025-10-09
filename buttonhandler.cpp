@@ -3,6 +3,7 @@
 
 #include "buttonhandler.h"
 #include "timer.h"
+#include "adcsampler.h"
 
 
 #define BUTTON_PIN (2)
@@ -26,7 +27,7 @@ volatile uint8_t internalButtonPin = 0xFF;
 
 
 void buttonPress(TimedExecution1ms& timer){
-	if(analogRead(internalButtonPin) > 800){
+	if(nonBlockingAnalogRead(internalButtonPin) > 800){
 		buttonEventMask = ButtonEvent::PRESSED;
 	}
 }
@@ -48,7 +49,7 @@ void setButtonHandlerFunc(ButtonHandlerFunc buttonHandler){
 
 void handleButtonEvents(){
 	
-	int analogButtonRead = analogRead(internalButtonPin);
+	int analogButtonRead = nonBlockingAnalogRead(internalButtonPin);//analogRead(internalButtonPin);
 	if(analogButtonRead > 800){
 		constexpr uint8_t buttonPressedMask =  ButtonEvent::PRESSED |  ButtonEvent::LONG_PRESSED | InternalButtonEvent::PRESSED_DEBOUNCE | InternalButtonEvent::NOT_RELEASED;
 		if(buttonPressTimer.isEnabled() == false && (buttonEventMask & buttonPressedMask) == 0){

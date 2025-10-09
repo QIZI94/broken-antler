@@ -1,5 +1,5 @@
 #ifndef BUTTON_H
-#include "time.h"
+#define BUTTON_H
 
 #define BUTTON_PIN (2)
 #define LONG_PRESS_TIME (2000)

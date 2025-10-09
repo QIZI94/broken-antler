@@ -10,6 +10,9 @@
 #include "animations.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include "adcsampler.h"
+//#include "audiosampler.h"
+
 
 #define BUTTON_HANDLER_SAMPLING_TIME_MS uint16_t(1)
 
@@ -41,7 +44,7 @@ void setup()
 	Serial.begin(115200);
 	Serial.println("Begining initialization");
 
-
+	initSamplerADC();
 
 	initButtonHandler(A6);
 	buttonHandlerTimer.setup(timedButtonHandler, BUTTON_HANDLER_SAMPLING_TIME_MS);
@@ -111,7 +114,7 @@ void setup()
 
 bool isOn = false;
 
-
+static int lastTime  = 0;
 void loop()
 {
 	//Serial.println(analogRead(A6));
@@ -166,7 +169,14 @@ void loop()
 	buttonInterruptHappen = false;
 	
   }
-
+  //if((micros() - lastTime) > 1000){
+	//averageRawSignal();
+	//handleAudioSampling();
+	//Serial.println("here");
+	//lastTime = micros();
+ //}
+ //debugAudioSampler();
+ //delay(1);
   handleAnimations();
   //Serial.println(analogRead(A7));
   //attachInterrupt(digitalPinToInterrupt(A3))
