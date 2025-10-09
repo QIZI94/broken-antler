@@ -1,8 +1,10 @@
 #include <SoftPWM_timer.h>
 #include <SoftPWM.h>
+#include <Arduino.h>
 
 #include "animationshandler.h"
 #include "timer.h"
+#include "audiosampler.h"
 
 #define SOFTPWM_FREQ 120
 #define SOFTPWM_OCR (F_CPU/(8UL*256UL*SOFTPWM_FREQ))
@@ -59,7 +61,13 @@ struct LedAnimationStateTimer : public TimedExecution1ms{
 
 
 static LedAnimationStateTimer ledAnimationTimers[size_t(LedPosition::NUM_OF_ALL_LEDS)];
+static TimedExecution1ms audioLinkSamplerTimer;
 
+const AnimationDef audioLinkFeature[] = DEFINE_ANIMATION(
+	ALL_LEDS_ANIMATION_HELPER(AnimationDirection::FORWARD, SequentialAnimationStepSpan(nullptr, nullptr))
+);
+
+extern void audioLinkHandler(uint16_t rawAudioInput);
 
 static void setAnimationLed(LedDef led, uint8_t brightness, bool immediate = false){
 
@@ -186,11 +194,29 @@ const AnimationDef* newSelectedAnimation = nullptr;
 void setAnimation(const AnimationDef* newAnimation){
 	newSelectedAnimation = newAnimation;
 }
+
+extern void audioLinkHandler(uint16_t rawSample, uint16_t avgSample, uint16_t avgOverTime, uint16_t baseline);
+
+
+
 void initAnimations(){
 	SoftPWMBegin();
 #ifdef TIFR2
 	SOFTPWM_TIMER_INIT(SOFTPWM_OCR);
 #endif
+	initAudioSampler(A7, 35);
+	setAudioSampleHandler(audioLinkHandler);
+	audioLinkSamplerTimer.setup(
+		[](TimedExecution1ms&){
+			handleAudioSampling();
+			audioLinkSamplerTimer.restart(1); // 1 ms
+		}
+		,1000 //ms
+	);
+	/*SoftPWMSetFadeTime(LED_LeftFront.blue.pin,0, 0);
+	SoftPWMSetFadeTime(LED_LeftFront.red.pin, 0, 0);
+	setAnimationLed(LED_LeftFront, 7, true);*/
+	
 	/*pinMode(LED_EyeLeft.blue.pin, OUTPUT);
 	pinMode(LED_EyeLeft.red.pin, OUTPUT);
 	pinMode(LED_EyeRight.blue.pin, OUTPUT);
@@ -212,6 +238,10 @@ void handleAnimations(){
 		noInterrupts();
 		//animationChangeDebounce.reset(20);
 		startAnimation(newSelectedAnimation);
+		
+		if(newSelectedAnimation == audioLinkFeature){
+
+		}
 		newSelectedAnimation = nullptr;
 		interrupts();
 	}
@@ -219,5 +249,72 @@ void handleAnimations(){
 	//setAnimationLed(LED_LeftMiddle, 80, true);
 	//setAnimationLed(LED_LeftBack, 80, true);
 }
+
+
+
+// AUDIOLINK
+
+static uint8_t stayOn1 = 0;
+void audioLinkHandler(uint16_t rawSample, uint16_t avgSample, uint16_t avgOverTime, uint16_t baseline){
+	
+	static lowpass_filter_fixed_2 bassFilter1(250);
+	static lowpass_filter_fixed_2 bassFilter2(70);
+	static lowpass_filter_fixed bassFilter3(70.0, 1024);
+	
+	//int filteredLowpass250 = (int)bassFilter1.filter((float)rawSample);
+	int filteredLowpass80 = bassFilter3.filter(avgSample);
+	//filteredLowpass80 = bassFilter3.filter(filteredLowpass80);
+	//filteredLowpass80 = bassFilter3.filter(filteredLowpass80);
+	uint16_t lowPass120 = filteredLowpass80 < 0 ? 0 : filteredLowpass80;
+	//Serial.print("rawSample: ");
+	//Serial.println(filteredLowpass80);
+	/*Serial.print(" avgSample: ");
+	Serial.println(avgSample);*/
+	/*Serial.print(" avgOverTime: ");
+	Serial.print(avgOverTime);
+	Serial.print(" baseline: ");
+	Serial.print(baseline);
+	Serial.print(" lowpass: ");
+	Serial.print(filteredLowpass80);
+	Serial.print(" duffraw: ");
+	Serial.print(rawSample - baseline);
+	Serial.print(" duffavg: ");
+	Serial.println(avgSample - baseline);*/
+	//Serial.print(" lowpass: ");
+	//Serial.println(lowPass120);
+	
+	//SoftPWMSetFadeTime(LED_LeftFront.blue.pin,0, 0);
+	//SoftPWMSetFadeTime(LED_LeftFront.red.pin, 0, 0);
+	if((lowPass120 > baseline && (lowPass120 - baseline) > 20) || stayOn1 > 0){
+	//if(filteredLowpass80 > 400){
+	//Serial.println("bass");
+		
+		//SoftPWMSetFadeTime(LED_LeftFront.blue.pin,7, 7);
+		//SoftPWMSetFadeTime(LED_LeftFront.red.pin, 7, 7);
+		
+
+		if(stayOn1 == 0){
+			SoftPWMSetFadeTime(LED_LeftFront.blue.pin,30, 30);
+			SoftPWMSetFadeTime(LED_LeftFront.red.pin, 30, 30);
+			setAnimationLed(LED_LeftFront, 80);
+			//digitalWrite(A1, HIGH);
+			//digitalWrite(A0, HIGH);
+			stayOn1=40;
+		}
+		else {
+			stayOn1--;
+		}
+	}
+	else {
+		//digitalWrite(A1, LOW);
+		//digitalWrite(A0, LOW);
+		SoftPWMSetFadeTime(LED_LeftFront.blue.pin,30, 30);
+		SoftPWMSetFadeTime(LED_LeftFront.red.pin, 30, 30);
+		setAnimationLed(LED_LeftFront, 30);
+		stayOn1=30;
+		
+	}
+}
+
 
 

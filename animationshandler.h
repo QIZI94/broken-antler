@@ -86,4 +86,8 @@ inline constexpr const AnimationDef ANIM_END(LedPosition::NUM_OF_ALL_LEDS, Anima
 extern void initAnimations();
 extern void handleAnimations();
 extern void setAnimation(const AnimationDef* newAnimation);
+
+
+extern const AnimationDef audioLinkFeature[];
+
 #endif
