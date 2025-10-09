@@ -8,6 +8,20 @@
 #define MAKE_END(arr) (&arr[LENGTH_OF_CONST_ARRAY(arr)])
 #define MAKE_SPAN(arr) (SequentialAnimationStepSpan(MAKE_BEGIN(arr), MAKE_END(arr)))
 
+#define ALL_LEDS_ANIMATION_HELPER(direction, span) \
+    AnimationDef(LedPosition::LEFT_FRONT,  (direction), (span)),\
+	AnimationDef(LedPosition::LEFT_MIDDLE,  (direction), (span)),\
+	AnimationDef(LedPosition::LEFT_BACK,  (direction), (span)),\
+	AnimationDef(LedPosition::RIGHT_FRONT,   (direction), (span)),\
+	AnimationDef(LedPosition::RIGHT_MIDDLE, (direction), (span)),\
+	AnimationDef(LedPosition::RIGHT_BACK,    (direction), (span))
+
+
+#define DEFINE_ANIMATION(...) \
+{\
+__VA_ARGS__,\
+ANIM_END\
+}
 
 enum class AnimationDirection: uint8_t{
     FORWARD,
@@ -66,7 +80,7 @@ struct AnimationDef{
 
 
 
-inline const AnimationDef ANIM_END(LedPosition::NUM_OF_ALL_LEDS, AnimationDirection::FORWARD, SequentialAnimationStepSpan(nullptr, nullptr));
+inline constexpr const AnimationDef ANIM_END(LedPosition::NUM_OF_ALL_LEDS, AnimationDirection::FORWARD, SequentialAnimationStepSpan(nullptr, nullptr));
 
 
 extern void initAnimations();

@@ -5,20 +5,7 @@
 #include "buttonhandler.h"
 #include <SoftPWM.h>
 
-#define ALL_LEDS_ANIMATION_HELPER(direction, span) \
-    AnimationDef(LedPosition::LEFT_FRONT,  (direction), (span)),\
-	AnimationDef(LedPosition::LEFT_MIDDLE,  (direction), (span)),\
-	AnimationDef(LedPosition::LEFT_BACK,  (direction), (span)),\
-	AnimationDef(LedPosition::RIGHT_FRONT,   (direction), (span)),\
-	AnimationDef(LedPosition::RIGHT_MIDDLE, (direction), (span)),\
-	AnimationDef(LedPosition::RIGHT_BACK,    (direction), (span))
 
-
-#define DEFINE_ANIMATION(...) \
-{\
-__VA_ARGS__,\
-ANIM_END\
-}
 static const PROGMEM AnimationStep breathingAnimSteps[] = {
     
     AnimationStep{.brightness = 95, .duration = 700},
@@ -343,7 +330,7 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 
 
 void initAnimationsSwitcher(){
-	//setAnimation(dmbBeatAnimation);
+	//setAnimation(leftRightFlowAnim);
 	setButtonHandlerFunc(buttonSwitchAnimationHandler);
 
 
