@@ -71,7 +71,18 @@ uint16_t nonBlockingAnalogRead(uint8_t pin){
 uint16_t averagedAnalogRead(uint8_t pin){
 	switch (pin){
 		case A7:
-			return adcAverageSumA7 / N_SAMPLES;;
+			return adcAverageSumA7 / N_SAMPLES;
+		case A6:
+			return lastReadingADCA6;		
+	}
+
+	return 0;
+}
+
+uint16_t summedAnalogRead(uint8_t pin){
+	switch (pin){
+		case A7:
+			return adcAverageSumA7;
 		case A6:
 			return lastReadingADCA6;		
 	}
