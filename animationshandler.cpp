@@ -204,7 +204,7 @@ void initAnimations(){
 #ifdef TIFR2
 	SOFTPWM_TIMER_INIT(SOFTPWM_OCR);
 #endif
-	initAudioSampler(A7, 35);
+	initAudioSampler(A7, 32);
 	setAudioSampleHandler(audioLinkHandler);
 	audioLinkSamplerTimer.setup(
 		[](TimedExecution1ms&){
@@ -259,13 +259,17 @@ void audioLinkHandler(uint16_t rawSample, uint16_t avgSample, uint16_t avgOverTi
 	
 	static lowpass_filter_fixed_2 bassFilter1(250);
 	static lowpass_filter_fixed_2 bassFilter2(70);
-	static lowpass_filter_fixed bassFilter3(70.0, 1024);
+	static lowpass_filter_fixed bassFilter3(120.0, 1024);
+	static highpass_filter_fixed highBassFilter3(80.0);
 	
 	//int filteredLowpass250 = (int)bassFilter1.filter((float)rawSample);
-	int filteredLowpass80 = bassFilter3.filter(avgSample);
+	int filteredLowpass80 = bassFilter3.filter(highBassFilter3.filter(avgSample) + baseline);
 	//filteredLowpass80 = bassFilter3.filter(filteredLowpass80);
 	//filteredLowpass80 = bassFilter3.filter(filteredLowpass80);
 	uint16_t lowPass120 = filteredLowpass80 < 0 ? 0 : filteredLowpass80;
+	if(lowPass120 > 1023){
+		lowPass120 = 1023;
+	}
 	//Serial.print("rawSample: ");
 	//Serial.println(filteredLowpass80);
 	/*Serial.print(" avgSample: ");
@@ -285,15 +289,18 @@ void audioLinkHandler(uint16_t rawSample, uint16_t avgSample, uint16_t avgOverTi
 	
 	//SoftPWMSetFadeTime(LED_LeftFront.blue.pin,0, 0);
 	//SoftPWMSetFadeTime(LED_LeftFront.red.pin, 0, 0);
-	if((lowPass120 > baseline && (lowPass120 - baseline) > 20) || stayOn1 > 0){
+	if(((lowPass120 > baseline && (lowPass120 - baseline) > 20)) || stayOn1 > 0){
 	//if(filteredLowpass80 > 400){
 	//Serial.println("bass");
+		
 		
 		//SoftPWMSetFadeTime(LED_LeftFront.blue.pin,7, 7);
 		//SoftPWMSetFadeTime(LED_LeftFront.red.pin, 7, 7);
 		
 
 		if(stayOn1 == 0){
+			//Serial.print("rawSample: ");
+			//Serial.println(lowPass120);
 			SoftPWMSetFadeTime(LED_LeftFront.blue.pin,30, 30);
 			SoftPWMSetFadeTime(LED_LeftFront.red.pin, 30, 30);
 			setAnimationLed(LED_LeftFront, 80);

@@ -24,7 +24,7 @@ class lowpass_filter_fixed {
     lowpass_filter_fixed() {}
 
     // custom constructor
-    lowpass_filter_fixed(float f_cutoff, float f_timePeriod) {
+    lowpass_filter_fixed(float f_cutoff, float f_timePeriod = 1024) {
 		setup(f_cutoff, f_timePeriod);
 	}
 
@@ -114,6 +114,86 @@ class lowpass_filter_fixed_2 {
     }
 };
 
+class highpass_filter_fixed {
+	static constexpr int32_t SHIFT = 10;              // scale = 2^10 = 1024
+	static constexpr int32_t SCALE = 1 << SHIFT;
+  public:
+    float f_cutoff, fs;
+    // default constructor
+    highpass_filter_fixed() {}
+
+    // custom constructor
+    highpass_filter_fixed(float f_c, float f_timePeriod = 1024): f_cutoff(f_c) {
+		setup(f_c, f_timePeriod);
+	}
+
+    int32_t old_raw = 0;      // old raw value
+    int32_t old_filtered = 0; // old filtered value
+	int32_t a_0_scaled = 0;
+	int32_t b_0_scaled = 0;
+	
+	void setup(float f_cutoff, float f_timePeriod){
+		float dt = f_timePeriod * 1e-6;
+		float wc = 2 * PI * f_cutoff;
+		float a_0 = (1 - (dt / 2) * wc) / (1 + (dt / 2) * wc);
+		float b_0 = 1 / (1 + (dt / 2) * wc);
+		a_0_scaled = (a_0 * SCALE + 0.5);
+		b_0_scaled = (b_0 * SCALE + 0.5);
+
+	}
+    // filter function
+    int32_t filter(int32_t raw) {
+
+		int32_t raw_scaled = raw << SHIFT;
+
+		
+		      // compute difference (still in ADC units)
+      int32_t dx = raw - old_raw;
+
+      // HPF equation in fixed point
+      	int32_t filtered = ( (a_0_scaled * old_filtered) + (b_0_scaled * dx) ) >> SHIFT;
+
+    	//int32_t filtered = ( (a_0_scaled * old_filtered) + (b_0_scaled * (raw_scaled - old_raw)) ) >> SHIFT;
+
+      	old_raw = raw;
+      	old_filtered = filtered;
+
+      	return filtered;
+    }
+};
 
 
+class highpass_filter {
+
+  public:
+    float f_cutoff;
+    // default constructor
+    highpass_filter(): f_cutoff(1) {}
+
+    // custom constructor
+    highpass_filter(float f_c): f_cutoff(f_c) {}
+
+    float old_raw;      // previous raw value
+    float old_filtered; // previous filtered value
+    float ts = 0;       // last timestamp
+
+    // filter function
+    float filter(float raw) {
+      float t_now = 1024;
+      float dt = (t_now - ts) * 1e-6;
+  
+
+      // coefficients for first-order high-pass using bilinear transform
+      float wc = 2 * PI * f_cutoff;
+      float a_0 = (1 - (dt / 2) * wc) / (1 + (dt / 2) * wc);
+      float b_0 = 1 / (1 + (dt / 2) * wc);
+
+      // difference equation for HPF
+      float filtered = a_0 * old_filtered + b_0 * (raw - old_raw);
+
+      old_raw = raw;        // store current raw
+      old_filtered = filtered; // store current filtered
+      return filtered; // return in same scale as input (no bias)
+    }
+};
 #endif

@@ -5,7 +5,10 @@
 #include "audiosampler.h"
 #include "adcsampler.h"
 
-#define LENGTH_OF_CONST_ARRAY(arr) (sizeof(arr)/sizeof(arr[0]))
+
+#define AVG_SAMPLE_DIVISOR (4)
+#define AVG_SAMPLE_COUNT (1<<AVG_SAMPLE_DIVISOR)
+
 
 volatile static AudioInputHandler audioInputHandler = nullptr;
 volatile static uint16_t lastAudioSample = 0;
@@ -16,7 +19,7 @@ static uint8_t internalAudioAnalogPin = 0xFF;
 static uint8_t averageCounter = 1;
 static uint8_t avgBaselineRate = 30;
 static uint16_t averageSamplesIndex = 0;
-volatile static uint16_t audioSamplesAverage[10]{0};
+volatile static uint16_t audioSamplesAverage[AVG_SAMPLE_COUNT]{0};
 volatile uint16_t audioSamplesAvgSum = 0;
 volatile uint16_t audioSamplesAvg = 0;
 
@@ -97,13 +100,11 @@ void handleAudioSampling(){
 	averagedReading /= 5;*/
 	//averageRawSignal();
 
-	constexpr uint8_t AVG_SAMPLE_COUNT = LENGTH_OF_CONST_ARRAY(audioSamplesAverage);
-	uint8_t averageSamplesIndexAdjusted = averageSamplesIndex % AVG_SAMPLE_COUNT;
-	audioSamplesAvgSum -= audioSamplesAverage[averageSamplesIndexAdjusted];
-	audioSamplesAverage[averageSamplesIndexAdjusted] = averagedReading;
+	audioSamplesAvgSum -= audioSamplesAverage[averageSamplesIndex];
+	audioSamplesAverage[averageSamplesIndex] = averagedReading;
 	audioSamplesAvgSum += averagedReading;
 
-	audioSamplesAvg = audioSamplesAvgSum / AVG_SAMPLE_COUNT;
+	audioSamplesAvg = audioSamplesAvgSum >> AVG_SAMPLE_DIVISOR;
 
 	//Serial.println(averagedReading);
 
@@ -126,6 +127,11 @@ void handleAudioSampling(){
 	}
 	averageCounter++;
 	averageSamplesIndex++;
+
+	if(averageSamplesIndex >= AVG_SAMPLE_COUNT){
+		averageSamplesIndex = 0;
+	}
+	
 }
 
 void debugAudioSampler(){
