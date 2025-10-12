@@ -14,7 +14,7 @@
 //#include "audiosampler.h"
 
 
-#define BUTTON_HANDLER_SAMPLING_TIME_MS uint16_t(1)
+#define BUTTON_HANDLER_SAMPLING_TIME_MS uint16_t(10)
 
 volatile bool buttonInterruptHappen = false;
 volatile ButtonEvent lastState = ButtonEvent::RELEASED;
