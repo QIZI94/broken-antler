@@ -259,8 +259,8 @@ void audioLinkHandler(uint16_t rawSample, uint16_t avgSample, uint16_t avgOverTi
 	
 	static lowpass_filter_fixed_2 bassFilter1(250);
 	static lowpass_filter_fixed_2 bassFilter2(70);
-	static lowpass_filter_fixed bassFilter3(120.0, 1024);
-	static highpass_filter_fixed highBassFilter3(80.0);
+	static LowPassFilterFixed bassFilter3(120.0, 1024);
+	static HighPassFilterFixed highBassFilter3(80.0);
 	
 	//int filteredLowpass250 = (int)bassFilter1.filter((float)rawSample);
 	int filteredLowpass80 = bassFilter3.filter(highBassFilter3.filter(avgSample) + baseline);

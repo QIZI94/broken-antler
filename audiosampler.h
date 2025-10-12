@@ -14,17 +14,17 @@ extern void averageRawSignal();
 extern void debugAudioSampler();
 
 
-class lowpass_filter_fixed {
+class LowPassFilterFixed {
 
   public:
 	static constexpr int32_t SHIFT = 10;              // scale = 2^10 = 1024
 	static constexpr int32_t SCALE = 1 << SHIFT;
 
     // default constructor
-    lowpass_filter_fixed() {}
+    LowPassFilterFixed() {}
 
     // custom constructor
-    lowpass_filter_fixed(float f_cutoff, float f_timePeriod = 1024) {
+    LowPassFilterFixed(float f_cutoff, float f_timePeriod = 1024) {
 		setup(f_cutoff, f_timePeriod);
 	}
 
@@ -71,15 +71,15 @@ class lowpass_filter_fixed {
 	}
 };
 
-class lowpass_filter_fixed_2 {
+class LowPassFilter {
 
   public:
 
     // default constructor
-    lowpass_filter_fixed_2() {}
+    LowPassFilter() {}
 
     // custom constructor
-    lowpass_filter_fixed_2(float f_cutoff) {
+    LowPassFilter(float f_cutoff) {
 		setup(f_cutoff);
 	}
 
@@ -114,16 +114,16 @@ class lowpass_filter_fixed_2 {
     }
 };
 
-class highpass_filter_fixed {
+class HighPassFilterFixed {
 	static constexpr int32_t SHIFT = 10;              // scale = 2^10 = 1024
 	static constexpr int32_t SCALE = 1 << SHIFT;
   public:
     float f_cutoff, fs;
     // default constructor
-    highpass_filter_fixed() {}
+    HighPassFilterFixed() {}
 
     // custom constructor
-    highpass_filter_fixed(float f_c, float f_timePeriod = 1024): f_cutoff(f_c) {
+    HighPassFilterFixed(float f_c, float f_timePeriod = 1024): f_cutoff(f_c) {
 		setup(f_c, f_timePeriod);
 	}
 
@@ -163,37 +163,39 @@ class highpass_filter_fixed {
 };
 
 
-class highpass_filter {
+class HighPassFilter {
 
   public:
     float f_cutoff;
     // default constructor
-    highpass_filter(): f_cutoff(1) {}
+    HighPassFilter(){}
 
     // custom constructor
-    highpass_filter(float f_c): f_cutoff(f_c) {}
+    HighPassFilter(float f_c, float f_timePeriod = 1024) {
+		setup(f_c, f_timePeriod);
+	}
 
     float old_raw;      // previous raw value
     float old_filtered; // previous filtered value
-    float ts = 0;       // last timestamp
+    float a_0 = 0;
+	float b_0 = 0;
+
+
+	void setup(float f_cutoff, float f_timePeriod){
+		float dt = f_timePeriod * 1e-6;
+		float wc = 2 * PI * f_cutoff;
+		a_0 = (1 - (dt / 2) * wc) / (1 + (dt / 2) * wc);
+		b_0 = 1 / (1 + (dt / 2) * wc);
+	}
 
     // filter function
     float filter(float raw) {
-      float t_now = 1024;
-      float dt = (t_now - ts) * 1e-6;
-  
+    	// difference equation for HPF
+    	float filtered = a_0 * old_filtered + b_0 * (raw - old_raw);
 
-      // coefficients for first-order high-pass using bilinear transform
-      float wc = 2 * PI * f_cutoff;
-      float a_0 = (1 - (dt / 2) * wc) / (1 + (dt / 2) * wc);
-      float b_0 = 1 / (1 + (dt / 2) * wc);
-
-      // difference equation for HPF
-      float filtered = a_0 * old_filtered + b_0 * (raw - old_raw);
-
-      old_raw = raw;        // store current raw
-      old_filtered = filtered; // store current filtered
-      return filtered; // return in same scale as input (no bias)
+    	old_raw = raw;        // store current raw
+    	old_filtered = filtered; // store current filtered
+    	return filtered; // return in same scale as input (no bias)
     }
 };
 #endif
