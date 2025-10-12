@@ -27,21 +27,6 @@ struct LedAnimationStateTimer : public TimedExecution1ms{
 		return currentStep;
 	}
 
-	const AnimationStep* begin(){
-        return animationDef->stepSpan.begin();
-    }
-
-	const AnimationStep* end(){
-        return animationDef->stepSpan.end();
-    }
-
-    const AnimationStep* rbegin(){
-        return animationDef->stepSpan.rbegin();
-    }
-    const AnimationStep* rend(){
-        return animationDef->stepSpan.rend();
-    }
-    
     const AnimationStep* next(){
         return ++currentStep;
     }
@@ -257,8 +242,6 @@ void handleAnimations(){
 static uint8_t stayOn1 = 0;
 void audioLinkHandler(uint16_t rawSample, uint16_t avgSample, uint16_t avgOverTime, uint16_t baseline){
 	
-	static lowpass_filter_fixed_2 bassFilter1(250);
-	static lowpass_filter_fixed_2 bassFilter2(70);
 	static LowPassFilterFixed bassFilter3(120.0, 1024);
 	static HighPassFilterFixed highBassFilter3(80.0);
 	
