@@ -11,10 +11,18 @@
 
 #define PROGMEM_READ_STRUCTURE(p_dst, p_src) do { memcpy_P(p_dst, p_src, sizeof(*p_dst));} while (0)
 
+enum class AnimationRunModeState : uint8_t {
+	RUN,
+	RUN_ONCE,
+	STOP
+};
+
+
 struct LedAnimationStateTimer : public TimedExecution1ms{
-	void assignAnimation(const AnimationDef* animationDef, AnimationDirection direction){
+	void assignAnimation(const AnimationDef* animationDef, AnimationDirection direction, AnimationRunModeState state = AnimationRunModeState::RUN){
 		this->animationDef = animationDef;
 		this->direction = direction;
+		this->state = state;
 		current(nullptr);
 	}
 
@@ -38,8 +46,10 @@ struct LedAnimationStateTimer : public TimedExecution1ms{
     const AnimationStep* currentStep;
 
 	public:
-	const AnimationDef* animationDef;
-	AnimationDirection direction;
+	const AnimationDef* animationDef = nullptr;
+	AnimationDirection direction = AnimationDirection::BACKWARD;
+	AnimationRunModeState state = AnimationRunModeState::STOP;
+	
 	
 };
 
@@ -68,6 +78,9 @@ static void setAnimationLed(LedDef led, uint8_t brightness, bool immediate = fal
 
 static void handleLedAnimation(TimedExecution1ms& timer){
 	LedAnimationStateTimer& processedAnimation =  reinterpret_cast<LedAnimationStateTimer&>(timer);
+	if(processedAnimation.state == AnimationRunModeState::STOP){
+		return;
+	}
 	AnimationStep loadedStep = {};
 	PROGMEM_READ_STRUCTURE(&loadedStep, processedAnimation.current());
     const AnimationStep* currentStep = &loadedStep;
@@ -83,44 +96,63 @@ static void handleLedAnimation(TimedExecution1ms& timer){
 		setAnimationLed(led, currentStep->brightness);
 	}
 
-    switch(processedAnimation.direction){
-		
-        case AnimationDirection::FORWARD:
-            if(processedAnimation.next() == steps->end()){
-                processedAnimation.current(steps->begin());
-            }
-            break;
-        case AnimationDirection::BIDIRECTIONAL_FORWARD:
-            if(processedAnimation.next() == steps->end()){
-                processedAnimation.current(steps->rbegin());
-				if(processedAnimation.prev() == steps->rend()){
-					processedAnimation.current(steps->rbegin());
+	if(processedAnimation.state == AnimationRunModeState::RUN_ONCE){
+		switch(processedAnimation.direction){
+			case AnimationDirection::FORWARD:
+			case AnimationDirection::BIDIRECTIONAL_FORWARD:
+				if(processedAnimation.next() == steps->end()){
+					processedAnimation.state = AnimationRunModeState::STOP;
 				}
-                processedAnimation.direction = AnimationDirection::BIDIRECTIONAL_BACKWARD;
-            }
-            break;
-        
-        case AnimationDirection::BACKWARD:
-            if(processedAnimation.prev() == steps->rend()){
-                processedAnimation.current(steps->rbegin());
-            }
-			break;
-        case AnimationDirection::BIDIRECTIONAL_BACKWARD:
-            if(processedAnimation.prev() == steps->rend()){
-				processedAnimation.current(steps->begin());
+				break;
+			case AnimationDirection::BACKWARD:
+			case AnimationDirection::BIDIRECTIONAL_BACKWARD:
+				if(processedAnimation.prev() == steps->rend()){
+					processedAnimation.state = AnimationRunModeState::STOP;
+				}
+				break;
+		}
+	}
+	else {
+
+		switch(processedAnimation.direction){
+			
+			case AnimationDirection::FORWARD:
 				if(processedAnimation.next() == steps->end()){
 					processedAnimation.current(steps->begin());
 				}
-                
-                processedAnimation.direction = AnimationDirection::BIDIRECTIONAL_FORWARD;
-            }
-        	break;
-    }
+				break;
+			case AnimationDirection::BIDIRECTIONAL_FORWARD:
+				if(processedAnimation.next() == steps->end()){
+					processedAnimation.current(steps->rbegin());
+					if(processedAnimation.prev() == steps->rend()){
+						processedAnimation.current(steps->rbegin());
+					}
+					processedAnimation.direction = AnimationDirection::BIDIRECTIONAL_BACKWARD;
+				}
+				break;
+			
+			case AnimationDirection::BACKWARD:
+				if(processedAnimation.prev() == steps->rend()){
+					processedAnimation.current(steps->rbegin());
+				}
+				break;
+			case AnimationDirection::BIDIRECTIONAL_BACKWARD:
+				if(processedAnimation.prev() == steps->rend()){
+					processedAnimation.current(steps->begin());
+					if(processedAnimation.next() == steps->end()){
+						processedAnimation.current(steps->begin());
+					}
+					
+					processedAnimation.direction = AnimationDirection::BIDIRECTIONAL_FORWARD;
+				}
+				break;
+		}
+	}
 	timer.restart(duration);
 }
 
 
-static void startAnimation(const AnimationDef* animation){
+static void startAnimation(const AnimationDef* animation, bool runOnce = false){
 	
 	for(LedAnimationStateTimer& animStateTimer : ledAnimationTimers){
 		animStateTimer.disable();
@@ -142,7 +174,11 @@ static void startAnimation(const AnimationDef* animation){
 
 			LedAnimationStateTimer& animStateTimer = ledAnimationTimers[animationIndex];
 			
-			animStateTimer.assignAnimation(animationIt, loadedAnimDef.direction);
+			animStateTimer.assignAnimation(
+				animationIt,
+				loadedAnimDef.direction,
+				runOnce ? AnimationRunModeState::RUN_ONCE : AnimationRunModeState::RUN
+			);
 			
 			switch(loadedAnimDef.direction){
 				case AnimationDirection::BIDIRECTIONAL_FORWARD:
@@ -175,9 +211,11 @@ static void startAnimation(const AnimationDef* animation){
 
 
 const AnimationDef* newSelectedAnimation = nullptr;
+bool runOnlyOnce = false;
 
-void setAnimation(const AnimationDef* newAnimation){
+void setAnimation(const AnimationDef* newAnimation, bool runOnce){
 	newSelectedAnimation = newAnimation;
+	runOnlyOnce = runOnce;
 }
 
 extern void audioLinkHandler(uint16_t rawSample, uint16_t avgSample, uint16_t avgOverTime, uint16_t baseline);
@@ -222,7 +260,7 @@ void handleAnimations(){
 	if(newSelectedAnimation != nullptr){
 		noInterrupts();
 		//animationChangeDebounce.reset(20);
-		startAnimation(newSelectedAnimation);
+		startAnimation(newSelectedAnimation, runOnlyOnce);
 		
 		if(newSelectedAnimation == audioLinkFeature){
 
