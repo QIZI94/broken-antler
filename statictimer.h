@@ -9,14 +9,14 @@ class StaticTimer{
 public:
 	static constexpr uint32_t TICK_VALUE = TICK_VALUE_AMOUNT;
 public:
-    ~StaticTimer(){
+    ~StaticTimer() {
         // unregister timer upon destruction,
         // this more of a memory safety measure if timer is defined on stack and function goes out of scope it will remove it-self
         disable();        
     }
     // register timer instance into doubly linked list
     // enables countdown by tickAllTimers() function
-    void enable(){
+    void enable() volatile {
         if(!isEnabled()){
             volatile StaticTimer** begin = getTimersListBegin();
             if(*begin == nullptr){
@@ -30,7 +30,7 @@ public:
         }
     }
 
-    void disable(){
+    void disable() volatile {
 		if(isEnabled()){
 			if(prev != nullptr)
 				prev->next = next;
@@ -46,33 +46,33 @@ public:
 		}
     }
 
-    void reset(uint32_t interval){
+    void reset(uint32_t interval) volatile {
         countdown = interval/TICK_VALUE;
     }
 
-	void restart(uint32_t interval){
+	void restart(uint32_t interval) volatile {
 		reset();
 		enable();
 	}
 
-	uint32_t getCurrentCountDown() const {
+	uint32_t getCurrentCountDown() const volatile {
 		return countdown;
 	}
 	
-	uint32_t getRemainingTime() const {
+	uint32_t getRemainingTime() const volatile {
 		return countdown*TICK_VALUE;
 	}
 
     // checks if time set by reset(us) has elapsed since 
-    bool isDown() const{
+    bool isDown() const volatile {
         return (countdown == 0);
     }
 
-    bool isEnabled() const{
+    bool isEnabled() const volatile {
         return (prev != nullptr || next != nullptr || this == *getTimersListBegin());
     }
     
-    // this function will be called by timer interrupt and handle registered timers countdowns
+    // this function should be called by timer interrupt and handle registered timers countdowns
     static void tickAllTimers(){
         volatile StaticTimer* currentTimer = *getTimersListBegin();
 
@@ -102,7 +102,7 @@ private: // static functions
     }
 
     // one tick -> decrease of countdown, amount is defined by countAmount(and will be specific for hardware timer used)
-    void tick(){
+    void tick() volatile {
         if(!isDown()){
             countdown -= 1;
         }

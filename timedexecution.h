@@ -77,7 +77,7 @@ public: // functions
     }
     // register timer instance into doubly linked list
     // enables countdown by tickAllTimers() function
-    void enable(){
+    void enable() volatile {
         if(!isEnabled()){
             volatile TimedExecution** begin = getTimedExecutionListBegin();
             if(*begin == nullptr){
@@ -92,7 +92,7 @@ public: // functions
 		timer.enable();
     }
 
-    void disable(){
+    void disable() volatile {
 		if(isEnabled()){
 			if(prev != nullptr)
 				prev->next = next;
@@ -109,15 +109,15 @@ public: // functions
 		timer.disable();
     }
 
-    bool isEnabled() const{
+    bool isEnabled() const volatile {
         return (prev != nullptr || next != nullptr || this == *getTimedExecutionListBegin());
     }
 
-	void setExecFunction(ExecFunPtr exec){
+	void setExecFunction(ExecFunPtr exec) volatile {
         execPtr = exec;
     }
 
-	void setup(ExecFunPtr execFunction, uint32_t interval, bool enableTimer = true){
+	void setup(ExecFunPtr execFunction, uint32_t interval, bool enableTimer = true) volatile {
 		setExecFunction(execFunction);
 		timer.reset(interval);
 		if(enableTimer){
@@ -125,11 +125,11 @@ public: // functions
 		}
 	}
 
-	void restart(uint32_t interval){
+	void restart(uint32_t interval) volatile {
 		timer.reset(interval);
 		enable();
 	}
-	const StaticTimerBase& getTimer() const {
+	const StaticTimerBase& getTimer() const volatile {
 		return timer;
 	}
 private: // functions
@@ -144,7 +144,7 @@ private: // functions
 public: // static functions
     // this function will be called by timer interrupt and handle registered timers countdowns
     static void executeAllTimedExecutions(){
-        TimedExecution* currentTimedExecution = *getTimedExecutionListBegin();
+        volatile TimedExecution* currentTimedExecution = *getTimedExecutionListBegin();
 #ifdef DEBUG_TIMED_EXECUTION
 		DebugFuncPtr debugFunc = *GetDebugRoutine();
 		debugFunc(List(), DebugStage::BeforeExecution);
