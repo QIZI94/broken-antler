@@ -1,5 +1,18 @@
-#include <SoftPWM_timer.h>
-#include <SoftPWM.h>
+/*#pragma GCC optimize( \
+  "O3", "inline-functions", "inline-functions-called-once", \
+  "unswitch-loops", "peel-loops", "predictive-commoning", \
+  "gcse-after-reload", "tree-loop-distribute-patterns", \
+  "tree-slp-vectorize", "tree-loop-vectorize", "rename-registers", \
+  "reorder-blocks", "reorder-blocks-and-partition", \
+  "reorder-functions", "split-wide-types", "cprop-registers", \
+  "ipa-cp-clone", "ipa-reference", "ipa-pure-const", "ipa-profile", "ipa-pta", \
+  "tree-partial-pre", "tree-tail-merge", "ivopts", "web", \
+  "cse-follow-jumps", "cse-skip-blocks", "reorder-blocks-algorithm=simple", \
+  "split-paths", "vect-cost-model=dynamic", \
+  "align-functions=2", "align-jumps=2", "align-loops=2", "inline-all-stringops" \
+)*/
+#pragma GCC optimize("O3", "inline-functions", "tree-vectorize", "unroll-loops")
+
 
 #include <avr/interrupt.h>
 #include "timer.h"
@@ -11,7 +24,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "adcsampler.h"
-//#include "audiosampler.h"
+#include "audiosampler.h"
 
 
 #define BUTTON_HANDLER_SAMPLING_TIME_MS uint16_t(10)
@@ -30,14 +43,19 @@ void printButtonHandler(ButtonEvent state){
 	lastState = state;
 	buttonInterruptHappen = true;
 }
-/*
+
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 
 #define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-*/
+//Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+TimedExecution1ms testTime;
+
+ static uint32_t startTime = 0;
+
+volatile static uint32_t testTimeTook = 0;
 
 void setup()
 {
@@ -53,16 +71,23 @@ void setup()
 	initAnimations();
 	initAnimationsSwitcher();
 	initTimers();
-/*
 
-	if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+	testTime.setup([](TimedExecution1ms&){
+		uint32_t cur = micros();
+		testTimeTook = cur - startTime;
+		startTime = cur;
+		testTime.restart(1);
+	}, 1, true);
+
+
+	/*if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
     for(;;); // Don't proceed, loop forever
-  }
+  }*/
 
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
-  display.display();*/
+  //display.display();
 
 	//setButtonHandlerFunc(printButtonHandler);
 
@@ -178,6 +203,8 @@ void loop()
  //debugAudioSampler();
  //delay(1);
   handleAnimations();
+  //Serial.println(testTimeTook);
+  delay(100);
   //Serial.println(analogRead(A7));
   //attachInterrupt(digitalPinToInterrupt(A3))
 }

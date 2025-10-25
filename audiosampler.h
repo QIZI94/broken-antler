@@ -3,7 +3,7 @@
 
 #include <inttypes.h>
 
-using AudioInputHandler = void (*)(uint16_t rawSample, uint16_t avgSample, uint16_t avgOverTime, uint16_t baseline);
+using AudioInputHandler = void (*)(uint16_t avgSample, uint16_t avgOverTime, uint16_t baseline);
 extern void initAudioSampler(uint8_t analogPin, uint8_t avgAndBaselineRate);
 extern void setAudioSampleHandler(AudioInputHandler audioHandler);
 extern uint16_t getLastRawAudioSample();
@@ -118,12 +118,12 @@ class HighPassFilterFixed {
 	static constexpr int32_t SHIFT = 10;              // scale = 2^10 = 1024
 	static constexpr int32_t SCALE = 1 << SHIFT;
   public:
-    float f_cutoff, fs;
+
     // default constructor
     HighPassFilterFixed() {}
 
     // custom constructor
-    HighPassFilterFixed(float f_c, float f_timePeriod = 1024): f_cutoff(f_c) {
+    HighPassFilterFixed(float f_c, float f_timePeriod = 1024) {
 		setup(f_c, f_timePeriod);
 	}
 
