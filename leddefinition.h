@@ -36,7 +36,7 @@ inline const LedDef LED_LeftMiddle{
 };
 
 inline const LedDef LED_LeftBack{
-	.blue = {.pin = 2, .convertBrightness = linearBrightness},
+	.blue = {.pin = 11, .convertBrightness = linearBrightness},
 	.red = {.pin = 3, .convertBrightness = linearBrightness}
 };
 
