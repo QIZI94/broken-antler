@@ -5,6 +5,7 @@
     "board": "arduino:avr:nano",
     "port": "/dev/ttyUSB0",
     "buildPreferences": [
-		["compiler.cpp.extra_flags", "-O3"]
+
+		["compiler.cpp.extra_flags", "-std=gnu++17"]
 	]
 }
