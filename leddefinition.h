@@ -15,10 +15,35 @@ struct LedDef{
 	const LedParams red;
 };
 
+inline constexpr uint8_t PERCENTAGE_TO_BRIGHTNESS(uint8_t percent){
+	return (((uint16_t)percent * 255) / 100) & 0xFE;
+}
+
 inline uint8_t linearBrightness(uint8_t inputBrightness){
 	
 	return inputBrightness;//inputBrightness == 0 ? inputBrightness : inputBrightness / 2;
 }
+/*
+template <size_t N> 
+	struct LedTable {
+    static constexpr float GAMMA = 2.2f;
+    uint8_t data[N]{};
+    constexpr LedTable() {
+        for (size_t i = 0; i < N; ++i) {
+            float norm = static_cast<float>(i) / static_cast<float>(N - 1); 
+            data[i] = gamma_correct(norm); 
+        }
+        
+    } 
+    static constexpr uint8_t gamma_correct(float x) { return static_cast<uint8_t>( round(pow(x, GAMMA) * static_cast<float>(N)) ); }
+}; 
+inline uint8_t logarithmicBrightness(uint8_t inputBrightness){
+	
+	// Instantiate at compile time
+	static constexpr const PROGMEM LedTable<255> led_table;
+	return pgm_read_byte(&led_table.data[inputBrightness]);
+	//return inputBrightness;//inputBrightness == 0 ? inputBrightness : inputBrightness / 2;
+}*/
 
 
 inline const LedDef LED_LeftFront{
