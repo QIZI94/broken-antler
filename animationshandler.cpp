@@ -1,19 +1,5 @@
-/*#pragma GCC optimize( \
-  "O3", "inline-functions", "inline-functions-called-once", \
-  "unswitch-loops", "peel-loops", "predictive-commoning", \
-  "gcse-after-reload", "tree-loop-distribute-patterns", \
-  "tree-slp-vectorize", "tree-loop-vectorize", "rename-registers", \
-  "reorder-blocks", "reorder-blocks-and-partition", \
-  "reorder-functions", "split-wide-types", "cprop-registers", \
-  "ipa-cp-clone", "ipa-reference", "ipa-pure-const", "ipa-profile", "ipa-pta", \
-  "tree-partial-pre", "tree-tail-merge", "ivopts", "web", \
-  "cse-follow-jumps", "cse-skip-blocks", "reorder-blocks-algorithm=simple", \
-  "split-paths", "vect-cost-model=dynamic", \
-  "align-functions=2", "align-jumps=2",      "align-loops=2", "inline-all-stringops" \
-)*/
-#pragma GCC optimize("O3", "inline-functions", "tree-vectorize", "unroll-loops")
-#include <SoftPWM_timer.h>
-#include <SoftPWM.h>
+#include "SoftPWM_timer.h"
+#include "SoftPWM.h"
 #include <Arduino.h>
 
 #include "animationshandler.h"
@@ -71,6 +57,7 @@ struct LedAnimationStateTimer : public TimedExecution1ms{
 
 static LedAnimationStateTimer ledAnimationTimers[size_t(LedPosition::NUM_OF_ALL_LEDS)];
 static TimedExecution1ms audioLinkSamplerTimer;
+static uint8_t animationSpeedShift = 0;
 static volatile uint8_t activeAnimationsTimersCount = 0;
 
 const AnimationDef audioLinkFeature[] = DEFINE_ANIMATION(
@@ -84,8 +71,8 @@ static void setAnimationLed(LedDef led, uint8_t brightness, bool immediate = fal
 	uint8_t redBrightness = led.red.convertBrightness(brightness);
 	uint8_t blueBrightness = led.blue.convertBrightness(brightness);
 
-	SoftPWMSetPercent(led.blue.pin, blueBrightness, immediate ? 1 : 0);
-	SoftPWMSetPercent(led.red.pin, redBrightness, immediate ? 1 : 0);
+	SoftPWMSet(led.blue.pin, blueBrightness, immediate ? 1 : 0);
+	SoftPWMSet(led.red.pin, redBrightness, immediate ? 1 : 0);
 }
 
 inline bool isAnimationRunning(){
@@ -95,7 +82,7 @@ inline bool isAnimationRunning(){
 		}
 	}
 	return false;*/
-	return activeAnimationsTimersCount > 0;
+	return activeAnimationsTimersCount != 0;
 }
 
 
@@ -240,7 +227,7 @@ static void startAnimation(const AnimationDef* animation, bool runOnce = false){
 
 }
 
-static void changeAnimation(const AnimationDef* animation, bool runOnce = false){
+static void changeAnimation(const AnimationDef* animation, bool runOnce = false, uint8_t speedShift = 0){
 	uint8_t activeCount = 0;
 	if(animation != nullptr){
 		
@@ -249,7 +236,7 @@ static void changeAnimation(const AnimationDef* animation, bool runOnce = false)
 
 		AnimationDef loadedAnimDef(LedPosition::LEFT_BACK, AnimationDirection::FORWARD, SequentialAnimationStepSpan(nullptr, nullptr));;
 		
-
+		animationSpeedShift = speedShift;
 		while(true){
 			PROGMEM_READ_STRUCTURE(&loadedAnimDef, animationIt);
 			if(!loadedAnimDef.isValid()){
@@ -302,25 +289,38 @@ static void changeAnimation(const AnimationDef* animation, bool runOnce = false)
 
 
 
-const AnimationDef* newSelectedAnimation = nullptr;
-bool runOnlyOnce = false;
+
+
+static const AnimationDef* newSelectedAnimation = nullptr;
+static const AnimationDef* newBassAnimation = nullptr;
+static const AnimationDef* newRepeatBassAnimation = nullptr;
+static uint8_t newEarlyRepeatTriggerCount = 0;
+static bool runOnlyOnce = false;
 
 void setAnimation(const AnimationDef* newAnimation, bool runOnce){
 	newSelectedAnimation = newAnimation;
 	runOnlyOnce = runOnce;
 }
 
-extern void audioLinkHandler(uint16_t avgSample, uint16_t avgOverTime, uint16_t baseline);
+void setAudioLink(const AnimationDef* bassAnimation, const AnimationDef* repeatBassAnimation, const AnimationDef* idleAnimation, uint8_t earlyRepeatTriggerCount){
+	newBassAnimation = bassAnimation;
+	newRepeatBassAnimation = repeatBassAnimation;
+	newSelectedAnimation = idleAnimation;
+	newEarlyRepeatTriggerCount = earlyRepeatTriggerCount;
+}
+
+struct AudioLink{
+	const AnimationDef* bassAnimation;
+	const AnimationDef* repeatBassAnimation;
+	const AnimationDef* idleAnimation;
+	uint8_t earlyRepeatTriggerCount;
+} static audioLink;
 
 
 
-void initAnimations(){
-	SoftPWMBegin();
-#ifdef TIFR2
-	SOFTPWM_TIMER_INIT(SOFTPWM_OCR);
-#endif
-	initAudioSampler(A7, 32);
-	setAudioSampleHandler(audioLinkHandler);
+void startAudioLink(const AudioLink& newAudioLink){
+	audioLink = newAudioLink;
+	startAnimation(newAudioLink.idleAnimation);
 	audioLinkSamplerTimer.setup(
 		[](TimedExecution1ms&){
 			handleAudioSampling();
@@ -328,6 +328,32 @@ void initAnimations(){
 		}
 		,1000 //ms
 	);
+}
+
+void stopAudioLink(){
+	audioLinkSamplerTimer.disable();
+}
+
+
+
+extern void audioLinkHandler(uint16_t avgSample, uint16_t avgOverTime, uint16_t baseline);
+
+
+void initAnimations(){
+	SoftPWMBegin();
+#ifdef TIFR2
+	SOFTPWM_TIMER_INIT(SOFTPWM_OCR);
+#endif
+
+	initAudioSampler(A7, 32);
+	setAudioSampleHandler(audioLinkHandler);
+	/*audioLinkSamplerTimer.setup(
+		[](TimedExecution1ms&){
+			handleAudioSampling();
+			audioLinkSamplerTimer.restart(1); // 1 ms
+		}
+		,1000 //ms
+	);*/
 	/*SoftPWMSetFadeTime(LED_LeftFront.blue.pin,0, 0);
 	SoftPWMSetFadeTime(LED_LeftFront.red.pin, 0, 0);
 	setAnimationLed(LED_LeftFront, 7, true);*/
@@ -352,12 +378,23 @@ void handleAnimations(){
 	if(newSelectedAnimation != nullptr){
 		noInterrupts();
 		//animationChangeDebounce.reset(20);
-		startAnimation(newSelectedAnimation, runOnlyOnce);
-		
-		if(newSelectedAnimation == audioLinkFeature){
-
+		if(newBassAnimation != nullptr){
+			startAudioLink(
+				AudioLink{
+					.bassAnimation=newBassAnimation,
+					.repeatBassAnimation = newRepeatBassAnimation,
+					.idleAnimation=newSelectedAnimation,
+					.earlyRepeatTriggerCount = newEarlyRepeatTriggerCount
+				}
+			);
 		}
+		else {
+			stopAudioLink();
+			startAnimation(newSelectedAnimation, runOnlyOnce);
+		}
+		
 		newSelectedAnimation = nullptr;
+		newBassAnimation = nullptr;
 		interrupts();
 	}
 	//setAnimationLed(LED_LeftFront, 80, true);
@@ -369,48 +406,12 @@ void handleAnimations(){
 
 // AUDIOLINK
 
-static const PROGMEM AnimationStep fastFlowAnimSteps[] = {
-    AnimationStep{.brightness = 25, .duration = 50},
-    AnimationStep{.brightness = 95, .duration = 25},
-	AnimationStep{.brightness = 25, .duration = 25},
-	//STEP_DELAY(10000)
-    
-};
-
-static const PROGMEM AnimationDef fastFlowAnimation[] = DEFINE_ANIMATION(
-	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 0),
-	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 40),
-	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 80),
-	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 0),
-	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 40),
-	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 80)
-);
-
-static const PROGMEM AnimationStep slowFlowAnimSteps[] = {
-    AnimationStep{.brightness = 30, .duration = 10},
-    AnimationStep{.brightness = 60, .duration = 1500},
-	AnimationStep{.brightness = 30, .duration = 1300},
-	//STEP_DELAY(10000)
-    
-};
-
-static const PROGMEM AnimationDef slowFlow[] = DEFINE_ANIMATION(
-	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(slowFlowAnimSteps), 0),
-	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(slowFlowAnimSteps), 350),
-	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(slowFlowAnimSteps), 700),
-	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(slowFlowAnimSteps), 0),
-	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(slowFlowAnimSteps), 350),
-	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(slowFlowAnimSteps), 700)
-);
-
-
-
 
 static uint8_t stayOn1 = 0;
 void audioLinkHandler(uint16_t avgSample, uint16_t avgOverTime, uint16_t baseline){
 	
 	static LowPassFilterFixed bassFilter3(120.0, 1024);
-	static HighPassFilterFixed highBassFilter3(80.0, 1024);
+	static HighPassFilterFixed highBassFilter3(100.0, 1024);
 	
 	//int filteredLowpass250 = (int)bassFilter1.filter((float)rawSample);
 	int16_t filteredLowpass80 = bassFilter3.filter(highBassFilter3.filter(avgSample) + baseline);
@@ -452,9 +453,29 @@ void audioLinkHandler(uint16_t avgSample, uint16_t avgOverTime, uint16_t baselin
 			//SoftPWMSetFadeTime(LED_LeftFront.blue.pin,30, 30);
 			//SoftPWMSetFadeTime(LED_LeftFront.red.pin, 30, 30);
 			//setAnimationLed(LED_LeftFront, 80);
-			if(activeAnimationsTimersCount != 0 && ledAnimationTimers[0].animationDef != fastFlowAnimation){
-				changeAnimation(fastFlowAnimation, true);
+			//bool isCurrentAnimationBass = ledAnimationTimers[0].animationDef == audioLink.bassAnimation;
+			//bool isAnyAnimationRunning = activeAnimationsTimersCount != 0;
+			//bool shouldBassAnimationRepeat = activeAnimationsTimersCount <= 2;
+			if(
+				activeAnimationsTimersCount != 0 &&
+				ledAnimationTimers[0].animationDef == audioLink.idleAnimation
+			){
+				
+				changeAnimation(audioLink.bassAnimation, true, 0);
 			}
+			else if(
+				activeAnimationsTimersCount <= audioLink.earlyRepeatTriggerCount &&
+				(
+					ledAnimationTimers[0].animationDef == audioLink.bassAnimation ||
+					ledAnimationTimers[0].animationDef == audioLink.repeatBassAnimation
+				)
+			){
+				changeAnimation(audioLink.repeatBassAnimation, true, 0);
+			}
+			
+			/*if(activeAnimationsTimersCount != 0 && ledAnimationTimers[0].animationDef != audioLink.bassAnimation){
+				changeAnimation(audioLink.bassAnimation, true);
+			}*/
 			
 			//digitalWrite(A1, HIGH);
 			//digitalWrite(A0, HIGH);
@@ -471,7 +492,7 @@ void audioLinkHandler(uint16_t avgSample, uint16_t avgOverTime, uint16_t baselin
 		//SoftPWMSetFadeTime(LED_LeftFront.red.pin, 30, 30);
 		//setAnimationLed(LED_LeftFront, 30);
 		if(activeAnimationsTimersCount == 0){
-			changeAnimation(slowFlow);
+			changeAnimation(audioLink.idleAnimation, 0);
 		}
 		//stayOn1=30;
 		

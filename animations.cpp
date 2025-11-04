@@ -1,56 +1,41 @@
 
-/*#pragma GCC optimize( \
-  "O3", "inline-functions", "inline-functions-called-once", \
-  "unswitch-loops", "peel-loops", "predictive-commoning", \
-  "gcse-after-reload", "tree-loop-distribute-patterns", \
-  "tree-slp-vectorize", "tree-loop-vectorize", "rename-registers", \
-  "reorder-blocks", "reorder-blocks-and-partition", \
-  "reorder-functions", "split-wide-types", "cprop-registers", \
-  "ipa-cp-clone", "ipa-reference", "ipa-pure-const", "ipa-profile", "ipa-pta", \
-  "tree-partial-pre", "tree-tail-merge", "ivopts", "web", \
-  "cse-follow-jumps", "cse-skip-blocks", "reorder-blocks-algorithm=simple", \
-  "split-paths", "vect-cost-model=dynamic", \
-  "align-functions=2", "align-jumps=2", "align-loops=2", "inline-all-stringops" \
-)*/
-#pragma GCC optimize("O3", "inline-functions", "tree-vectorize", "unroll-loops")
 #include "animations.h"
 #include "animationshandler.h"
 #include "buttonhandler.h"
-#include <SoftPWM.h>
 
 
 static const PROGMEM AnimationStep breathingAnimSteps[] = {
     
-    AnimationStep{.brightness = 95, .duration = 700},
-    AnimationStep{.brightness = 10, .duration = 800},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 700},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(10), .duration = 800},
 };
 static const PROGMEM AnimationStep breathingAnimDelayedSteps[] = {
     STEP_DELAY(1000),
-    AnimationStep{.brightness = 95, .duration = 2000},
-    AnimationStep{.brightness = 10, .duration = 2000},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 2000},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(10), .duration = 2000},
 };
 
 static const PROGMEM AnimationStep slowBreathingAnimSteps[] = {
-    AnimationStep{.brightness = 0, .duration = 800},
-    AnimationStep{.brightness = 95, .duration = 900},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(0), .duration = 800},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 900},
     
 };
 static const PROGMEM AnimationStep flowAnimSteps[] = {
-    AnimationStep{.brightness = 25, .duration = 700},
-    AnimationStep{.brightness = 95, .duration = 800},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(25), .duration = 700},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 800},
     
 };
 static const PROGMEM AnimationStep segmentedFlowAnimSteps[] = {
-    AnimationStep{.brightness = 95, .duration = 300},
-	AnimationStep{.brightness = 20, .duration = 300},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 300},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 300},
     
 	STEP_DELAY(600)
     
 };
 
 static const PROGMEM AnimationStep leftRightFlowMidAnimSteps[] = {
-    AnimationStep{.brightness = 95, .duration = 500},
-	AnimationStep{.brightness = 20, .duration = 500},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 500},
 
 
     
@@ -63,27 +48,27 @@ static const PROGMEM AnimationStep leftRightFlowMidAnimSteps[] = {
 constexpr uint16_t leftRightflowOffset = 1500;
 
 static const PROGMEM AnimationStep leftRightFlowLeftFrontAnimSteps[] = {
-    AnimationStep{.brightness = 95, .duration = 500},
-	AnimationStep{.brightness = 20, .duration = 500},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 500},
 	STEP_DELAY(1000),
-	AnimationStep{.brightness = 95, .duration = 500},
-	AnimationStep{.brightness = 20, .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 500},
 	STEP_DELAY(leftRightflowOffset)
 };
 static const PROGMEM AnimationStep leftRightFlowLeftMiddleAnimSteps[] = {
-	AnimationStep{.brightness = 95, .duration = 500},
-	AnimationStep{.brightness = 20, .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 500},
 	STEP_DELAY(500),
-	AnimationStep{.brightness = 95, .duration = 500},
-	AnimationStep{.brightness = 20, .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 500},
 	STEP_DELAY(500 + leftRightflowOffset),
 };
 static const PROGMEM AnimationStep leftRightFlowLeftBackAnimSteps[] = {
-	AnimationStep{.brightness = 95, .duration = 500},
-	AnimationStep{.brightness = 20, .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 500},
 	//STEP_DELAY(rightFlowOffset),
-	AnimationStep{.brightness = 95, .duration = 500},
-	AnimationStep{.brightness = 20, .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 500},
 	STEP_DELAY(1000 + leftRightflowOffset)
 	//STEP_DELAY(500)
 };
@@ -92,27 +77,27 @@ static const PROGMEM AnimationStep leftRightFlowLeftBackAnimSteps[] = {
 
 
 static const PROGMEM AnimationStep leftRightFlowRightFrontAnimSteps[] = {
-    AnimationStep{.brightness = 95, .duration = 500},
-	AnimationStep{.brightness = 20, .duration = 500},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 500},
 	STEP_DELAY(1000+leftRightflowOffset),
-	AnimationStep{.brightness = 95, .duration = 500},
-	AnimationStep{.brightness = 20, .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 500},
 	//STEP_DELAY(500)
 };
 static const PROGMEM AnimationStep leftRightFlowRightMiddleAnimSteps[] = {
-	AnimationStep{.brightness = 95, .duration = 500},
-	AnimationStep{.brightness = 20, .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 500},
 	STEP_DELAY(500+leftRightflowOffset),
-	AnimationStep{.brightness = 95, .duration = 500},
-	AnimationStep{.brightness = 20, .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 500},
 	STEP_DELAY(500),
 };
 static const PROGMEM AnimationStep leftRightFlowRightBackAnimSteps[] = {
-	AnimationStep{.brightness = 95, .duration = 500},
-	AnimationStep{.brightness = 20, .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 500},
 	STEP_DELAY(leftRightflowOffset),
-	AnimationStep{.brightness = 95, .duration = 500},
-	AnimationStep{.brightness = 20, .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 500},
 	STEP_DELAY(1000)
 	//STEP_DELAY(500)
 };
@@ -120,12 +105,12 @@ static const PROGMEM AnimationStep leftRightFlowRightBackAnimSteps[] = {
 
 
 static const PROGMEM AnimationStep NoEffectSteps[] = {
-	AnimationStep{.brightness = 95, .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(95), .duration = 0},
 	STEP_DELAY(1000)
 };
 
 static const PROGMEM AnimationStep disableSteps[] = {
-	AnimationStep{.brightness = 0, .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(0), .duration = 0},
 	STEP_DELAY(1000)
 };
 
@@ -136,51 +121,51 @@ constexpr uint16_t beatDuration = 340;
 static const PROGMEM AnimationStep dnbSnaresTimingsSteps[] = {
 
 	//snare
-	AnimationStep{.brightness = 100, .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(100), .duration = 0},
 	STEP_DELAY(20),
 	//snare
-	AnimationStep{.brightness = 20, .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 0},
 	STEP_DELAY(beatDuration - 20),
 
 };
 static const PROGMEM AnimationStep dnbSnaresFastTimingsSteps[] = {
 
 	//snare
-	AnimationStep{.brightness = 100, .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(100), .duration = 0},
 	STEP_DELAY(10),
 	//snare
-	AnimationStep{.brightness = 20, .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 0},
 	STEP_DELAY(beatDuration - 10),
 
 };
 static const PROGMEM AnimationStep dnbKickTimingsSteps[] = {
 	//kick
-	AnimationStep{.brightness = 100, .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(100), .duration = 0},
 	STEP_DELAY(50),
 	//kick
-	AnimationStep{.brightness = 20, .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 0},
 	STEP_DELAY(beatDuration - 50),
 
 
 	//kick
-	AnimationStep{.brightness = 100, .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(100), .duration = 0},
 	STEP_DELAY(50),
 	//kick
-	AnimationStep{.brightness = 20, .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 0},
 	STEP_DELAY(beatDuration - 50),
 
 	STEP_DELAY(100),
 	//kick
-	AnimationStep{.brightness = 100, .duration = 10},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(100), .duration = 10},
 	STEP_DELAY(10),
 	//kick
-	AnimationStep{.brightness = 20, .duration = 10},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 10},
 	STEP_DELAY(beatDuration - 30),
 	//kick
-	AnimationStep{.brightness = 100, .duration = 10},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(100), .duration = 10},
 	STEP_DELAY(10),
 	//kick
-	AnimationStep{.brightness = 20, .duration = 10},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 10},
 	STEP_DELAY(beatDuration - 30),
 
 };
@@ -272,6 +257,75 @@ static const PROGMEM AnimationDef turnOffLedsAnimation[] = DEFINE_ANIMATION(
 );
 
 
+// AUDIOLINK
+constexpr uint8_t bassStepPatternDurations[]{
+	50,25,25
+};
+constexpr float repeatBassDivisor = 2.4;
+static const PROGMEM AnimationStep fastFlowAnimSteps[] = {
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = bassStepPatternDurations[0]},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70), .duration = bassStepPatternDurations[1]},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = bassStepPatternDurations[2]},
+	STEP_DELAY(20)
+	//STEP_DELAY(10000)
+    
+};
+
+static const PROGMEM AnimationDef bassAnimation[] = DEFINE_ANIMATION(
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 0),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 40),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 80),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 0),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 40),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 80)
+);
+
+static const PROGMEM AnimationStep fasterFlowAnimSteps[] = {
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = bassStepPatternDurations[0] / 1},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70), .duration = bassStepPatternDurations[1] / 1},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = bassStepPatternDurations[2] / 1},
+	
+	//STEP_DELAY(10000)
+    
+};
+static const PROGMEM AnimationStep fasterFlowWithDelayAnimSteps[] = {
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = bassStepPatternDurations[0] / 1},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70), .duration = bassStepPatternDurations[1] / 1},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = bassStepPatternDurations[2] / 1},
+	STEP_DELAY(10/repeatBassDivisor)
+	//STEP_DELAY(10000)
+    
+};
+
+static const PROGMEM AnimationDef repeatedBassAnimation[] = DEFINE_ANIMATION(
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(fasterFlowAnimSteps), 0),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(fasterFlowAnimSteps), 40 / repeatBassDivisor),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(fasterFlowWithDelayAnimSteps), 80 / repeatBassDivisor),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(fasterFlowAnimSteps), 0),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(fasterFlowAnimSteps), 40 / repeatBassDivisor),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(fasterFlowWithDelayAnimSteps), 80 / repeatBassDivisor)
+);
+
+static const PROGMEM AnimationStep slowFlowAnimSteps[] = {
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = 10},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70), .duration = 1500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = 1300},
+	//STEP_DELAY(10000)
+    
+};
+
+static const PROGMEM AnimationDef idleFlow[] = DEFINE_ANIMATION(
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(slowFlowAnimSteps), 0),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(slowFlowAnimSteps), 350),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(slowFlowAnimSteps), 700),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(slowFlowAnimSteps), 0),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(slowFlowAnimSteps), 350),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(slowFlowAnimSteps), 700)
+);
+
+
+
+
 
 static const AnimationDef* animationList[] = {
 	allLedsOnAnim,
@@ -344,6 +398,7 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 
 void initAnimationsSwitcher(){
 	//setAnimation(leftRightFlowAnim);
+	setAudioLink(bassAnimation, repeatedBassAnimation, idleFlow,0);
 	setButtonHandlerFunc(buttonSwitchAnimationHandler);
 
 
