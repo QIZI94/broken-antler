@@ -39,7 +39,7 @@ class LowPassFilterFixed {
 
 	
 
-    int32_t old_raw = 0; // old raw val
+    int32_t old_rawb0 = 0; // old raw val
     int32_t old_filtered = 0; // old filtered val
 	int32_t a_0_scaled = 0;
 	int32_t b_0_scaled = 0;
@@ -59,11 +59,10 @@ class LowPassFilterFixed {
 		// multiply → rescale with right shift instead of divide
 		int32_t term1 = (a_0_scaled * old_filtered) >> SHIFT;
 		int32_t term2 = (b_0_scaled * raw_scaled) >> SHIFT;
-		int32_t term3 = (b_0_scaled * old_raw) >> SHIFT;
 
-		int32_t filtered = term1 + term2 + term3;
+		int32_t filtered = term1 + term2 + old_rawb0;
 
-		old_raw = raw_scaled;
+		old_rawb0 = term2;
 		old_filtered = filtered;
 
 		// convert back from fixed-point (right shift instead of divide)
