@@ -158,7 +158,7 @@ void debugAudioSampler(){
     	avgReading += audioSample;
   	}*/
 	noInterrupts();
-	uint16_t localLastSample = lastAudioSample;
+	uint16_t localLastSample = nonBlockingAnalogRead(A7);
 	uint16_t localAveragedSample = averagedReading;
 	uint16_t localAvgOverTime = audioSamplesAvg;
 	uint16_t localBaseline = baselineAvg;
