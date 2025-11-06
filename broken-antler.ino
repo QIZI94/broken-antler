@@ -11,7 +11,7 @@
   "split-paths", "vect-cost-model=dynamic", \
   "align-functions=2", "align-jumps=2", "align-loops=2", "inline-all-stringops" \
 )*/
-#pragma GCC optimize("O3", "inline-functions", "tree-vectorize", "unroll-loops")
+//#pragma GCC optimize("O3", "inline-functions", "tree-vectorize", "unroll-loops")
 
 
 #include <avr/interrupt.h>
@@ -49,7 +49,7 @@ void printButtonHandler(ButtonEvent state){
 
 #define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
-//Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 TimedExecution1ms testTime;
 
@@ -72,23 +72,26 @@ void setup()
 	initAnimationsSwitcher();
 	initTimers();
 
-	testTime.setup([](TimedExecution1ms&){
+	/*testTime.setup([](TimedExecution1ms&){
 		uint32_t cur = micros();
 		testTimeTook = cur - startTime;
 		startTime = cur;
 		testTime.restart(1);
-	}, 1, true);
+	}, 1, true);*/
 
 
-	/*if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+	if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
     for(;;); // Don't proceed, loop forever
-  }*/
+  }
 
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
-  //display.display();
-
+  display.display();
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  display.println("HERE");
+  display.display();
 	//setButtonHandlerFunc(printButtonHandler);
 
 	// Initialize
