@@ -3,7 +3,6 @@
 
 #include "timer.h"
 
-#include <TimerOne.h>
 
 
 ISR(TIMER0_COMPB_vect) {
