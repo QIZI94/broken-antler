@@ -47,37 +47,41 @@ inline uint8_t logarithmicBrightness(uint8_t inputBrightness){
 
 
 inline const LedDef LED_LeftFront{
-	.blue = {.pin = A0, .convertBrightness = linearBrightness},
-	.red = {.pin = A1, .convertBrightness = linearBrightness}
+	//.blue = {.pin = A0, .convertBrightness = linearBrightness},
+	//.red = {.pin = A1, .convertBrightness = linearBrightness}
+	.blue = {.pin = 12, .convertBrightness = linearBrightness},
+	.red = {.pin = 13, .convertBrightness = linearBrightness}
 	
 };
 
 inline const LedDef LED_LeftMiddle{
-	.blue = {.pin = 12, .convertBrightness = linearBrightness},
-	.red = {.pin = 13, .convertBrightness = linearBrightness}
+	.blue = {.pin = A2, .convertBrightness = linearBrightness},
+	.red = {.pin = A3, .convertBrightness = linearBrightness}
 	
 	
 	
 };
 
 inline const LedDef LED_LeftBack{
-	.blue = {.pin = 11, .convertBrightness = linearBrightness},
-	.red = {.pin = 3, .convertBrightness = linearBrightness}
+	//.blue = {.pin = 11, .convertBrightness = linearBrightness},
+	//.red = {.pin = 3, .convertBrightness = linearBrightness}
+	.blue = {.pin = A0, .convertBrightness = linearBrightness},
+	.red = {.pin = A1, .convertBrightness = linearBrightness}
 };
 
 inline const LedDef LED_RightFront{
+	.blue = {.pin = 8, .convertBrightness = linearBrightness},
+	.red = {.pin = 9, .convertBrightness = linearBrightness}
+};
+
+inline const LedDef LED_RightMiddle{
 	.blue = {.pin = 4, .convertBrightness = linearBrightness},
 	.red = {.pin = 7, .convertBrightness = linearBrightness}
 };
 
-inline const LedDef LED_RightMiddle{
-	.blue = {.pin = A2, .convertBrightness = linearBrightness},
-	.red = {.pin = A3, .convertBrightness = linearBrightness}
-};
-
 inline const LedDef LED_RightBack{
-	.blue = {.pin = 8, .convertBrightness = linearBrightness},
-	.red = {.pin = 9, .convertBrightness = linearBrightness}
+	.blue = {.pin = 11, .convertBrightness = linearBrightness},
+	.red = {.pin = 3, .convertBrightness = linearBrightness}
 };
 
 inline const LedDef LED_Eye{
