@@ -2,6 +2,7 @@
 #include "animations.h"
 #include "animationshandler.h"
 #include "buttonhandler.h"
+#include "timer.h"
 
 
 static const PROGMEM AnimationStep breathingAnimSteps[] = {
@@ -335,6 +336,7 @@ static const AnimationDef* animationList[] = {
 	dmbBeatAnimation,
 	flowAnimation,
 	segmentedFlowAnim,
+	idleFlow,
 	//animation2,
 	//animation3,
 	/*
@@ -348,13 +350,27 @@ static const AnimationDef* animationList[] = {
 
 constexpr size_t animationListLength = LENGTH_OF_CONST_ARRAY(animationList);
 
+static TimedExecution1ms timedPressTimer;
+volatile static size_t selectionIndex = 0;
+volatile static bool eyesOn = false;
+volatile static bool longPressed = false;
+volatile static bool timedPress = false;
 
-volatile size_t selectionIndex = 0;
-volatile bool eyesOn = false;
-volatile bool longPressed = false;
+uint8_t lastEyesBlueBrightness = 0;
+uint8_t lastEyesRedBrightness = 0;
+
+
+const LedBrightness eyesBrightnessLevels[] = {
+	{.blue = 0, .red = 0},
+	{.blue = 20, .red = 100},
+	{.blue = 50, .red = 250}
+};
+static constexpr uint8_t eyesBrightnessLevelsLength = LENGTH_OF_CONST_ARRAY(eyesBrightnessLevels);
+const LedBrightness* lastEyesBrightnessPtr = &eyesBrightnessLevels[0];
 
 void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
-	if(buttonEvent == ButtonEvent::RELEASED && longPressed == false){
+
+	if(buttonEvent == ButtonEvent::RELEASED && !longPressed && !timedPress){
 		setAnimation(animationList[selectionIndex]);
 		selectionIndex++;
 		if(animationListLength <= selectionIndex){
@@ -366,16 +382,40 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 	}
 	else if(buttonEvent == ButtonEvent::LONG_PRESSED){
 		longPressed = true;
-		eyesOn = !eyesOn;
-		if(eyesOn){
+		setAudioLink(bassAnimation, repeatedBassAnimation, idleFlow,0);
+	}
+	if(buttonEvent == ButtonEvent::PRESSED){
+		timedPressTimer.setup(
+			[](TimedExecution1ms&){
+				analogWrite(LED_Eye.blue.pin, 155);
+				analogWrite(LED_Eye.red.pin, 255);
 
-			analogWrite(LED_Eye.blue.pin, 20);
-			analogWrite(LED_Eye.red.pin, 100);
+				timedPressTimer.setup(
+					[](TimedExecution1ms&){
+						analogWrite(LED_Eye.blue.pin, lastEyesBrightnessPtr->blue);
+						analogWrite(LED_Eye.red.pin, lastEyesBrightnessPtr->red);
+						timedPress = true;
+					},
+					50
+				);
+			},
+			2000
+		);
+	}
+	else if (buttonEvent == ButtonEvent::RELEASED && timedPress && !longPressed){
+		timedPress = false;
+		lastEyesBrightnessPtr++;
+
+		if(lastEyesBrightnessPtr == &eyesBrightnessLevels[eyesBrightnessLevelsLength]){
+			lastEyesBrightnessPtr = &eyesBrightnessLevels[0];
 		}
-		else {
-			analogWrite(LED_Eye.blue.pin, 0);
-			analogWrite(LED_Eye.red.pin, 0);
-		}
+
+		analogWrite(LED_Eye.blue.pin, lastEyesBrightnessPtr->blue);
+		analogWrite(LED_Eye.red.pin, lastEyesBrightnessPtr->red);
+	}
+	else{
+		timedPress = false;
+		timedPressTimer.disable();
 	}
 
 	/*switch(state){
@@ -398,13 +438,13 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 
 void initAnimationsSwitcher(){
 	//setAnimation(leftRightFlowAnim);
-	setAudioLink(bassAnimation, repeatedBassAnimation, idleFlow,0);
+	
 	setButtonHandlerFunc(buttonSwitchAnimationHandler);
 
 
 
-	analogWrite(LED_Eye.blue.pin, 1);
-	analogWrite(LED_Eye.red.pin, 1);
+	analogWrite(LED_Eye.blue.pin, lastEyesBrightnessPtr->blue);
+	analogWrite(LED_Eye.red.pin, lastEyesBrightnessPtr->red);
 
 
 }

@@ -68,9 +68,10 @@ void setup()
 	buttonHandlerTimer.setup(timedButtonHandler, BUTTON_HANDLER_SAMPLING_TIME_MS);
 	
 
-	initAnimations();
+	
 	initAnimationsSwitcher();
 	initTimers();
+  initAnimations();
 
 	/*testTime.setup([](TimedExecution1ms&){
 		uint32_t cur = micros();

@@ -2,7 +2,7 @@
 #define BUTTON_H
 
 #define BUTTON_PIN (2)
-#define LONG_PRESS_TIME (2000)
+#define LONG_PRESS_TIME (3200)
 
 enum ButtonEvent: uint8_t {
 	

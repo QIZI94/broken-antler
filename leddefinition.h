@@ -15,6 +15,13 @@ struct LedDef{
 	const LedParams red;
 };
 
+struct LedBrightness{
+	//constexpr LedBrightnes(uint8_t blue, uint8_t red) : blue(blue), red(red){}
+	//constexpr LedBrightnes(uint8_t sameBrightness) : blue(sameBrightness), red(sameBrightness){}
+	uint8_t blue;
+	uint8_t red;
+};
+
 inline constexpr uint8_t PERCENTAGE_TO_BRIGHTNESS(uint8_t percent){
 	return (((uint16_t)percent * 255) / 100) & 0xFE;
 }
