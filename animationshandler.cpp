@@ -66,10 +66,10 @@ const AnimationDef audioLinkFeature[] = DEFINE_ANIMATION(
 
 extern void audioLinkHandler(uint16_t rawAudioInput);
 
-static void setAnimationLed(LedDef led, uint8_t brightness, bool immediate = false){
-
-	uint8_t redBrightness = led.red.convertBrightness(brightness);
-	uint8_t blueBrightness = led.blue.convertBrightness(brightness);
+static void setAnimationLed(LedDef led, LedBrightness brightness, bool immediate = false){
+	uint8_t blueBrightness = led.blue.convertBrightness(brightness.blue);
+	uint8_t redBrightness = led.red.convertBrightness(brightness.red);
+	
 
 	SoftPWMSet(led.blue.pin, blueBrightness, immediate ? 1 : 0);
 	SoftPWMSet(led.red.pin, redBrightness, immediate ? 1 : 0);
@@ -220,7 +220,7 @@ static void startAnimation(const AnimationDef* animation, bool runOnce = false){
 	for(LedDef led : LED_AllLeds){
 		SoftPWMSetFadeTime(led.blue.pin, 0, 0);
 		SoftPWMSetFadeTime(led.red.pin, 0, 0);
-		setAnimationLed(led, 0, true);
+		setAnimationLed(led, LedBrightness::from(0), true);
 	}
 
 	activeAnimationsTimersCount = activeCount;
@@ -281,7 +281,7 @@ static void changeAnimation(const AnimationDef* animation, bool runOnce = false,
 		for(LedDef led : LED_AllLeds){
 			SoftPWMSetFadeTime(led.blue.pin, 0, 0);
 			SoftPWMSetFadeTime(led.red.pin, 0, 0);
-			setAnimationLed(led, 0, true);
+			setAnimationLed(led, LedBrightness::from(0), true);
 		}
 	}
 	activeAnimationsTimersCount = activeCount;

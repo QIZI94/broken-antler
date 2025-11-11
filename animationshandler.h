@@ -31,15 +31,15 @@ enum class AnimationDirection: uint8_t{
 };
 
 struct AnimationStep{
-    const uint8_t brightness;
+    const LedBrightness brightness;
     const uint16_t duration;
     
     bool isDelay() const {
-        return brightness == 0xFF && duration != 0xFFFF;
+        return brightness.blue == 0xFF && brightness.red == 0xFF && duration != 0xFFFF;
     }
 };
 
-#define STEP_DELAY(delay_ms) (AnimationStep{.brightness = 0xFF, .duration = (delay_ms)})
+#define STEP_DELAY(delay_ms) (AnimationStep{.brightness = LedBrightness::from(0xFF), .duration = (delay_ms)})
 
 class SequentialAnimationStepSpan{
 public:

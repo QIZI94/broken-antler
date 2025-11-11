@@ -16,14 +16,31 @@ struct LedDef{
 };
 
 struct LedBrightness{
-	//constexpr LedBrightnes(uint8_t blue, uint8_t red) : blue(blue), red(red){}
-	//constexpr LedBrightnes(uint8_t sameBrightness) : blue(sameBrightness), red(sameBrightness){}
 	uint8_t blue;
 	uint8_t red;
+	static constexpr LedBrightness from(uint8_t blue, uint8_t red){
+		return LedBrightness{
+			.blue = blue,
+			.red = red
+		};
+	}
+	static constexpr LedBrightness from(uint8_t brightness){
+		return LedBrightness{
+			.blue = brightness,
+			.red = brightness
+		};
+	}
 };
 
-inline constexpr uint8_t PERCENTAGE_TO_BRIGHTNESS(uint8_t percent){
-	return (((uint16_t)percent * 255) / 100) & 0xFE;
+inline constexpr LedBrightness PERCENTAGE_TO_BRIGHTNESS(uint8_t percent){
+	return LedBrightness::from((((uint16_t)percent * 255) / 100) & 0xFE);
+}
+
+inline constexpr LedBrightness PERCENTAGE_TO_BRIGHTNESS(uint8_t blue, uint8_t red){
+	return LedBrightness::from(
+		(((uint16_t)blue * 255) / 100) & 0xFE,
+		(((uint16_t)red * 255) / 100) & 0xFE
+	);
 }
 
 inline uint8_t linearBrightness(uint8_t inputBrightness){
