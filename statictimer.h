@@ -51,7 +51,7 @@ public:
     }
 
 	void restart(uint32_t interval) volatile {
-		reset();
+		reset(interval);
 		enable();
 	}
 

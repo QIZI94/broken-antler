@@ -129,7 +129,10 @@ public: // functions
 		timer.reset(interval);
 		enable();
 	}
-	const StaticTimerBase& getTimer() const volatile {
+	const volatile StaticTimerBase& getTimer() {
+		return timer;
+	}
+	const volatile StaticTimerBase& getTimer() const {
 		return timer;
 	}
 private: // functions
