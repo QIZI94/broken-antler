@@ -103,6 +103,22 @@ static const PROGMEM AnimationStep leftRightFlowRightBackAnimSteps[] = {
 	//STEP_DELAY(500)
 };
 
+// VIU VIU POLICE
+static const PROGMEM AnimationStep rightBlueViu[] = {
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20, 0), .duration = 650},
+
+	STEP_DELAY(100),
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(60, 0), .duration = 650},
+	//STEP_DELAY(500)
+};
+static const PROGMEM AnimationStep leftRedViu[] = {
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(0, 35), .duration = 650},
+
+	STEP_DELAY(100),
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(0, 100), .duration = 650},
+	//STEP_DELAY(500)
+};
+
 
 
 static const PROGMEM AnimationStep NoEffectSteps[] = {
@@ -216,12 +232,12 @@ static const PROGMEM AnimationDef dmbBeatAnimation[] = DEFINE_ANIMATION(
 
 
 static const PROGMEM AnimationDef leftRightAnim[] = DEFINE_ANIMATION(
-		AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps), 400),
-		AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps), 400),
-		AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps), 400),
-		AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps)),
-		AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps)),
-		AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps))
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps), 400),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps), 400),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps), 400),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps)),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps)),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(breathingAnimSteps))
 );
 static const PROGMEM AnimationDef segmentedFlowAnim[] = DEFINE_ANIMATION(
 	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::BIDIRECTIONAL_FORWARD, MAKE_SPAN(segmentedFlowAnimSteps), 0),
@@ -245,18 +261,27 @@ static const PROGMEM AnimationDef slowBreathingAnimation[] = DEFINE_ANIMATION(
 );
 
 static const PROGMEM AnimationDef flowAnimation[] = DEFINE_ANIMATION(
-		AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 0),
-		AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 300),
-		AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 600),
-		AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 0),
-		AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 300),
-		AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 600)
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 0),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 300),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 600),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 0),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 300),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(flowAnimSteps), 600)
 );
 
 static const PROGMEM AnimationDef turnOffLedsAnimation[] = DEFINE_ANIMATION(
 	ALL_LEDS_ANIMATION_HELPER(AnimationDirection::FORWARD, SequentialAnimationStepSpan(nullptr, nullptr))
 );
 
+
+static const PROGMEM AnimationDef viuviuPoliceAnimation[] = DEFINE_ANIMATION(
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(leftRedViu), 0),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(leftRedViu), 0),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(leftRedViu), 0),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(rightBlueViu), 650 + 100),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(rightBlueViu), 650 + 100),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(rightBlueViu), 650 + 100)
+);
 
 // AUDIOLINK
 constexpr uint8_t bassStepPatternDurations[]{
@@ -307,6 +332,24 @@ static const PROGMEM AnimationDef repeatedBassAnimation[] = DEFINE_ANIMATION(
 	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(fasterFlowWithDelayAnimSteps), 80 / repeatBassDivisor)
 );
 
+static const PROGMEM AnimationStep slowFlowColorRotationAnimSteps[] = {
+
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20,90), .duration = 1400},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(40,70), .duration = 1400},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70,50), .duration = 1400},
+
+    
+};
+
+static const PROGMEM AnimationDef idleFlowColorRotation[] = DEFINE_ANIMATION(
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(slowFlowColorRotationAnimSteps), 0),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(slowFlowColorRotationAnimSteps), 350),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(slowFlowColorRotationAnimSteps), 700),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(slowFlowColorRotationAnimSteps), 0),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(slowFlowColorRotationAnimSteps), 350),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(slowFlowColorRotationAnimSteps), 700)
+);
+
 static const PROGMEM AnimationStep slowFlowAnimSteps[] = {
     AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = 10},
     AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70), .duration = 1500},
@@ -337,12 +380,9 @@ static const AnimationDef* animationList[] = {
 	flowAnimation,
 	segmentedFlowAnim,
 	idleFlow,
-	//animation2,
-	//animation3,
-	/*
-	animation4,
-	animation5,
-	animation6,*/
+	idleFlowColorRotation,
+	viuviuPoliceAnimation,
+
 	
 	turnOffLedsAnimation
 
@@ -362,8 +402,8 @@ uint8_t lastEyesRedBrightness = 0;
 
 const LedBrightness eyesBrightnessLevels[] = {
 	{.blue = 0, .red = 0},
-	{.blue = 20, .red = 100},
-	{.blue = 50, .red = 250}
+	{.blue = 5, .red = 25},
+	{.blue = 50, .red = 200}
 };
 static constexpr uint8_t eyesBrightnessLevelsLength = LENGTH_OF_CONST_ARRAY(eyesBrightnessLevels);
 const LedBrightness* lastEyesBrightnessPtr = &eyesBrightnessLevels[0];
