@@ -6,6 +6,7 @@
     "port": "/dev/ttyUSB0",
     "buildPreferences": [
 
-		["compiler.cpp.extra_flags", "-std=gnu++17"]
+		["compiler.cpp.extra_flags", "-Wall -Wextra -std=gnu++17 -D__AVR_ATmega328P__"]
+
 	]
 }
