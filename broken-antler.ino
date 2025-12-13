@@ -25,6 +25,7 @@
 #include <Adafruit_SSD1306.h>
 #include "adcsampler.h"
 #include "audiosampler.h"
+#include "rtc.h"
 
 
 #define BUTTON_HANDLER_SAMPLING_TIME_MS uint16_t(10)
@@ -71,7 +72,8 @@ void setup()
 	
 	initAnimationsSwitcher();
 	initTimers();
-  initAnimations();
+  	initAnimations();
+	initRTC();
 
 	/*testTime.setup([](TimedExecution1ms&){
 		uint32_t cur = micros();
@@ -82,9 +84,9 @@ void setup()
 
 
 	if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    for(;;); // Don't proceed, loop forever
-  }
+		Serial.println(F("SSD1306 allocation failed"));
+		for(;;); // Don't proceed, loop forever
+	}
 
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
