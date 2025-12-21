@@ -26,6 +26,12 @@
 #include "adcsampler.h"
 #include "audiosampler.h"
 #include "rtc.h"
+#include "SchedPWM.h"
+
+// remove me after done
+#include "fixedforwardlist.h"
+
+#include "panic.h"
 
 
 #define BUTTON_HANDLER_SAMPLING_TIME_MS uint16_t(10)
@@ -75,6 +81,94 @@ void setup()
   	initAnimations();
 	initRTC();
 
+	FixedForwardList<10, int> list {10};
+	using Node = FixedForwardList<10, int>::Node;
+	for(const auto& a : list.nodes){
+		Serial.print(a.nextIndex());
+		Serial.print(" ");
+		Serial.println(a.value);
+		
+	}
+
+
+
+	Node* node = list.insertAfter(list.begin(), 1000);
+	Node* node2 = list.insertAfter(node, 2000);
+	Node* node3 = list.insertAfter(node2, 3000);
+
+	list.removeAfter(node);
+	list.removeAfter(node);
+	list.insertAfter(node, 4000);
+	list.removeAfter(list.end());
+	list.removeAfter(list.end());
+
+	 list.insertAfter(list.begin(), 2000);
+	list.insertAfter(list.begin(), 3000);
+	list.insertAfter(list.begin(), 3000);
+	list.insertAfter(list.begin(), 4000);
+	Serial.println(">>>>>>>>>>>>>>>>>>>>>>");
+
+	Node* it = list.begin();
+	while (it != list.end()){
+		Serial.print(it->nextIndex());
+		Serial.print(" ");
+		Serial.println(it->value);
+		it = list.nextNode(it);
+	}
+	
+	Serial.println("-------------------------");
+
+	
+
+
+	for(auto& a : list.nodes){
+		Serial.print(a.nextIndex());
+		Serial.print(" ");
+		Serial.println(a.value);
+		
+	}
+	/*
+	for(const auto& a : SchedPWM.steps){
+		Serial.print("bitStorage: ");
+		Serial.println(a.bitStorage);
+		Serial.print("nextIndex: ");
+		Serial.println(a.nextIndex);
+		Serial.print("nextIsrTime: ");
+		Serial.println(a.nextIsrTime);
+		Serial.println();
+
+	}
+	Serial.println("---------------------");
+	SchedPWM.setLedPWM(4, 50);
+	SchedPWM.setLedPWM(3, 30);
+
+
+	for(const auto& a : SchedPWM.steps){
+		Serial.print("bitStorage: ");
+		Serial.println(a.bitStorage);
+		Serial.print("nextIndex: ");
+		Serial.println(a.nextIndex);
+		Serial.print("nextIsrTime: ");
+		Serial.println(a.nextIsrTime);
+		Serial.println();
+
+	}*/
+	Serial.println();
+	
+	SchedPWM.steps.insertAfter(SchedPWM.steps.begin(), {});
+	SchedPWM.pwmISR();
+	//Serial.println(SchedPWM.steps.indexByNode(SchedPWM.steps.begin()));
+	SchedPWM.setLedPWM(4, 50);
+	
+	SchedPWM.setLedPWM(3, 30);
+	while(!SchedPWM.pwmISR());
+	//SchedPWM.pwmISR();
+	SchedPWM.setLedPWM(4, 70);
+	while(!SchedPWM.pwmISR());
+
+	Serial.print("AAAA: ");
+	Serial.println(SchedPWM.isLedExclusive(0,0x02));
+
 	/*testTime.setup([](TimedExecution1ms&){
 		uint32_t cur = micros();
 		testTimeTook = cur - startTime;
@@ -82,19 +176,22 @@ void setup()
 		testTime.restart(1);
 	}, 1, true);*/
 
-
+/*
 	if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
 		Serial.println(F("SSD1306 allocation failed"));
-		for(;;); // Don't proceed, loop forever
+		//for(;;); // Don't proceed, loop forever
 	}
+	else {
+		  display.display();
+			display.clearDisplay();
+			display.setTextColor(WHITE);
+			display.println("HERE");
+			display.display();
+	}*/
 
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
-  display.display();
-  display.clearDisplay();
-  display.setTextColor(WHITE);
-  display.println("HERE");
-  display.display();
+
 	//setButtonHandlerFunc(printButtonHandler);
 
 	// Initialize
@@ -211,6 +308,8 @@ void loop()
   handleAnimations();
   //Serial.println(testTimeTook);
   delay(100);
+  
+  //PANIC("ARDUINO PANIC!!");
   //Serial.println(analogRead(A7));
   //attachInterrupt(digitalPinToInterrupt(A3))
 }
