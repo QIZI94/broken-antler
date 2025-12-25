@@ -5,10 +5,7 @@
 
 #include "panic.h"
 
-
-void initScheduledPWM(){
-	
-}
+#define DEBUG_SCHED_PMW
 
 void ScheduledPWM::panicOnStepError(const char *msg, size_t index, void *addr){
 	char indexAndAddrStr[40];
@@ -17,46 +14,64 @@ void ScheduledPWM::panicOnStepError(const char *msg, size_t index, void *addr){
 	PANIC_RAW(msg);	
 }
 
-void ScheduledPWM::setLedPWM(LedID ledId, BrightnessType brightness)
-{
+void ScheduledPWM::setLedPWM(LedID ledId, BrightnessType brightness){
+	brightness = minBrightness > brightness ? minBrightness : brightness;
+	brightness = maxBrightness < brightness ? maxBrightness : brightness;
 	StepNode* previousNode = steps.begin();
 	
-
+	StepNode* nodeToInsertAfter;
 	if(brightness == 0){
 		unassignLed(ledId, previousNode->value.bitStorage);
+		nodeToInsertAfter = steps.end();
 	}
 	else {
 		assignLed(ledId, previousNode->value.bitStorage);
+		nodeToInsertAfter = nullptr;
 	}
 	StepNode* currentNode = steps.nextNode(previousNode);
-
-	StepNode* nodeToInsertAfter = nullptr;
+	bool pastInstanceRemoved = false;
+	
 	while(1){
 
 		if(currentNode == steps.end()){
 			if(nodeToInsertAfter == nullptr){
 				nodeToInsertAfter = previousNode;
+#ifdef DEBUG_SCHED_PMW
+				Serial.println("Hint insert after end");
+#endif
 			}
 			break;
 		}
-		
-		PWMStep& currentStep = currentNode->value;
 		PWMStep& previousStep = previousNode->value;
-
+		PWMStep& currentStep = currentNode->value;
+		StepNode* nextNode = steps.nextNode(currentNode);
+#ifdef DEBUG_SCHED_PMW
 		Serial.print("Input mask: ");
 		Serial.print(0x01 << ledId, BIN);
-		Serial.print("Step mask: ");
+		Serial.print(" Step mask: ");
 		Serial.println(currentNode->value.bitStorage, BIN);
+#endif
 		if(isLedExclusive(ledId, currentStep.bitStorage)){
-			if(nodeToInsertAfter == nullptr){
-				nodeToInsertAfter = previousNode;
-			}
+#ifdef DEBUG_SCHED_PMW
 			Serial.println("removing unique");
-			previousStep.nextIsrTime = currentStep.nextIsrTime;
+#endif
+			//previousStep.nextIsrTime = currentStep.nextIsrTime;
 			currentNode = steps.removeAfter(previousNode);
 			continue;
 		}
-		
+		if(
+			!pastInstanceRemoved &&
+			!isLedAssigned(ledId, currentStep.bitStorage) && 
+			nextNode != steps.end()
+		){
+#ifdef DEBUG_SCHED_PMW
+			Serial.println("removing previous");
+#endif
+			previousStep.nextIsrTime = currentStep.nextIsrTime;
+			currentNode = steps.removeAfter(previousNode);
+			pastInstanceRemoved = true;
+			continue;
+		}
 		
 
 		if(previousStep.nextIsrTime < brightness){
@@ -66,24 +81,30 @@ void ScheduledPWM::setLedPWM(LedID ledId, BrightnessType brightness)
 		}
 		else if(previousStep.nextIsrTime > brightness){
 			if(nodeToInsertAfter == nullptr){
+				
 				nodeToInsertAfter = previousNode;
+#ifdef DEBUG_SCHED_PMW
+				Serial.print("Hint insert after greater: ");
+				Serial.println(previousStep.nextIsrTime);
+#endif
 			}
 			unassignLed(ledId, currentStep.bitStorage);
 		}
 		else{
 			unassignLed(ledId, currentStep.bitStorage);
+			nodeToInsertAfter = steps.end();
 		}
 
 		previousNode = currentNode;
-		currentNode = steps.nextNode(currentNode);
+		currentNode = nextNode;
 	}
-	if(nodeToInsertAfter != nullptr){
-		StepNode* referenceNode = nodeToInsertAfter;
-		PWMStep& referenceStep = referenceNode->value;
+	if(nodeToInsertAfter != nullptr && nodeToInsertAfter != steps.end()){
+		PWMStep& referenceStep = nodeToInsertAfter->value;
 		
 		StepNode* newStepNode = steps.insertAfter(nodeToInsertAfter, referenceStep);
+#ifdef DEBUG_SCHED_PMW
 		Serial.println(steps.indexByNode(newStepNode));
-
+#endif
 		referenceStep.nextIsrTime = brightness;
 		unassignLed(
 			ledId,
@@ -235,24 +256,36 @@ void ScheduledPWM::setLedPWM(LedID ledId, BrightnessType brightness)
 bool ScheduledPWM::pwmISR(){
 	
 	//PANIC("ScheduledPWM::pwmISR");
-
+	if(currentStepNode == steps.begin()){
+		onDutyCycleBegin();
+	}
 	const PWMStep& currentStep = currentStepNode->value;
-	Serial.print("(");
+#ifdef DEBUG_SCHED_PMW
+	Serial.print('(');
 	Serial.print(size_t(currentStepNode));
-	Serial.print(")");
-	Serial.print("[");
+	Serial.print(')');
+	Serial.print('[');
 	Serial.print(steps.indexByNode(currentStepNode));
-	Serial.print("]");
-	Serial.print(" Next: ");
+	Serial.print(']');
+	Serial.print(F(" Next: "));
 	Serial.print(currentStepNode->nextIndex());
+	Serial.print(" LedMask: ");
+	Serial.print(currentStep.bitStorage, BIN);
+	Serial.print(" Brightness: ");
+	Serial.println(currentStep.nextIsrTime);
+#endif
 	processLedStep(currentStep.bitStorage);
 	setupNextIsrTime(currentStep.nextIsrTime);
+
 	
 
 	currentStepNode = steps.nextNode(currentStepNode);
 	if(currentStepNode == steps.end()){
+		onDutyCycleEnd();
 		currentStepNode = steps.begin();
+#ifdef DEBUG_SCHED_PMW
 		Serial.println();
+#endif
 		return true;
 	}
 	

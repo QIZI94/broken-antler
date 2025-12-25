@@ -155,19 +155,28 @@ void setup()
 	}*/
 	Serial.println();
 	
-	SchedPWM.steps.insertAfter(SchedPWM.steps.begin(), {});
+	//SchedPWM.steps.insertAfter(SchedPWM.steps.begin(), {});
 	SchedPWM.pwmISR();
 	//Serial.println(SchedPWM.steps.indexByNode(SchedPWM.steps.begin()));
 	SchedPWM.setLedPWM(4, 50);
 	
 	SchedPWM.setLedPWM(3, 30);
 	while(!SchedPWM.pwmISR());
+	SchedPWM.setLedPWM(2, 10);
+	while(!SchedPWM.pwmISR());
 	//SchedPWM.pwmISR();
 	SchedPWM.setLedPWM(4, 70);
 	while(!SchedPWM.pwmISR());
-
-	Serial.print("AAAA: ");
-	Serial.println(SchedPWM.isLedExclusive(0,0x02));
+	SchedPWM.setLedPWM(3, 20);
+	while(!SchedPWM.pwmISR());
+	SchedPWM.setLedPWM(2, 40);
+	while(!SchedPWM.pwmISR());
+	SchedPWM.setLedPWM(2, 20);
+	while(!SchedPWM.pwmISR());
+	SchedPWM.setLedPWM(2, 255);
+	while(!SchedPWM.pwmISR());
+	//Serial.print("AAAA: ");
+	//Serial.println(SchedPWM.isLedExclusive(0,0x02));
 
 	/*testTime.setup([](TimedExecution1ms&){
 		uint32_t cur = micros();
@@ -308,7 +317,7 @@ void loop()
   handleAnimations();
   //Serial.println(testTimeTook);
   delay(100);
-  
+  //SchedPWM.pwmISR();
   //PANIC("ARDUINO PANIC!!");
   //Serial.println(analogRead(A7));
   //attachInterrupt(digitalPinToInterrupt(A3))
