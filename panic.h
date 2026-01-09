@@ -3,24 +3,31 @@
 
 #include <Arduino.h>
 #include <avr/wdt.h>
-struct PanicTrace;
-inline PanicTrace* latestTrace = nullptr;
+
 struct PanicTrace{
 	static constexpr size_t INVALID_LINE_NUMBER = -1;
 	const PanicTrace* previous = nullptr;
 	const char* filename;
 	const char* functionName;
-	size_t line = INVALID_LINE_NUMBER;
-	PanicTrace(const char* filename, const char* functionName) : filename(filename), functionName(functionName){
-		previous = latestTrace;
-		latestTrace = this;
+	uint32_t line;
+	PanicTrace(const char* filename, const char* functionName, uint32_t line = INVALID_LINE_NUMBER) : filename(filename), functionName(functionName), line(line){
+		previous = *latestTrace();
+		*latestTrace() = this;
+	}
+	~PanicTrace(){
+		*latestTrace() = previous;
 	}
 
 	void print(bool printDescription = true) const {
 		if(printDescription){
 			Serial.println(F("Traceback (most recent call last):"));
 		}
-		Serial.print('\t');
+
+		if(previous){
+			previous->print(false);
+		}
+
+		Serial.print(' ');
 		Serial.print(filename);
 		if(line != INVALID_LINE_NUMBER){
 			Serial.print(':');
@@ -29,8 +36,21 @@ struct PanicTrace{
 		Serial.print(F(" -> "));
 		Serial.println(functionName);
 
-		if(previous){
-			previous->print(false);
+
+	}
+
+	static const PanicTrace** latestTrace(){
+		static const PanicTrace* latest = nullptr;
+		return &latest;
+	}
+	static void printLatest(){
+		const PanicTrace* latest = *latestTrace();
+		if(latest == nullptr){
+			Serial.println(F("No Traceback"));
+		}
+		else {
+			latest->print();
+			Serial.println();
 		}
 	}
 };
@@ -40,6 +60,7 @@ struct PanicTrace{
 
 [[noreturn]] inline void arduino_panic_(const char* msg) {
     cli();                     // stop interrupts
+	PanicTrace::printLatest();
 	Serial.print(F("PANIC! -> "));
     Serial.println(msg);       // prints directly from flash
     Serial.flush();            // wait until bytes are sent
@@ -50,6 +71,7 @@ struct PanicTrace{
 
 [[noreturn]] inline void arduino_panic_(const __FlashStringHelper* msg) {
     cli();                     // stop interrupts
+	PanicTrace::printLatest();
     Serial.print(F("PANIC! -> "));
 	Serial.println(msg);       // prints directly from flash
     Serial.flush();            // wait until bytes are sent
