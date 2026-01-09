@@ -3,17 +3,32 @@
 
 #include "leddefinition.h"
 
+#include "panic.h"
 
+#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
+
+#define SCHEDULED_PWM_TRACEBACK_ENTRY \
+PanicTrace __traceback_entry(__FILENAME__, __func__, __LINE__);
+
+
+#define FIXED_FORWARD_LIST_TRACEBACK_ENTRY SCHEDULED_PWM_TRACEBACK_ENTRY
+
+namespace detail{
+	extern void panicOnStepError(const char* msg, size_t index, void* addr);
+}
+
+#define FIXED_FORWARD_LIST_ERROR_FN(msg, index, addr)\
+	detail::panicOnStepError(((const char*) F(msg)), (index), (addr))
 
 #ifdef __AVR_ATmega328P__
-#define ERROR_MSG_LITERAL(literal_str) ((const char*) F(literal_str))
+
 #include "fixedforwardlist.h"
 #endif 
 
 
 class ScheduledPWM{
 private: // static functions
-	static void panicOnStepError(const char* msg, size_t index, void* addr);
+	
 public: // static variables
 	static constexpr uint8_t LED_COUNT = uint8_t(LedPosition::NUM_OF_ALL_LEDS) * 2;
 	static constexpr uint64_t DEFAULT_MIN_BRIGHTNESS = 0;
@@ -34,7 +49,7 @@ public: // types
 		}
 	};
 
-	using StepList = FixedForwardList<LED_COUNT + 1, PWMStep, uint8_t, panicOnStepError>;
+	using StepList = FixedForwardList<LED_COUNT + 1, PWMStep, uint8_t>;
 	using StepNode = StepList::Node;
 
 	//using ValueType = uint8_t;

@@ -5,18 +5,17 @@
 #define ERROR_MSG_LITERAL(literal_str) nullptr
 #endif
 
-#define _FIXED_FORWARD_LIST_ERROR(msg, index, addr) ERROR_FN(ERROR_MSG_LITERAL(msg), index, addr)
+#ifndef FIXED_FORWARD_LIST_ERROR_FN
+#define FIXED_FORWARD_LIST_ERROR_FN(msg, index, addr)
+#endif
+
+#ifndef FIXED_FORWARD_LIST_TRACEBACK_ENTRY
+#define FIXED_FORWARD_LIST_TRACEBACK_ENTRY
+#endif
 
 #include <inttypes.h>
 
-
-using ErroFn = void (*)(const char* msg, size_t index, void* addr);
-
-namespace detail{
-	inline void emptyErrorFn(const char*, size_t, void*){}
-}
-
-template<uint64_t N, typename T, typename idx_t = uint8_t, ErroFn ERROR_FN = detail::emptyErrorFn> 
+template<uint64_t N, typename T, typename idx_t = uint8_t> 
 class FixedForwardList{
 public:
 
@@ -80,15 +79,16 @@ public:
 	}
 
 	Node* insertAfter(Node* beforeNode, const T& value){
+		FIXED_FORWARD_LIST_TRACEBACK_ENTRY
 		if(unallocatedIndex >= BUFFER_END_INDEX){
-			_FIXED_FORWARD_LIST_ERROR("ForwardList:insertAfter:OutOfMemory", unallocatedIndex, &nodes[unallocatedIndex]);
+			FIXED_FORWARD_LIST_ERROR_FN("ForwardList:insertAfter => OutOfMemory", unallocatedIndex, &nodes[unallocatedIndex]);
 			return end();
 		}
 
 		bool isBeforeBegin = beforeNode == beforeBegin();
 
 		if(!isBeforeBegin && (isForeignNode(beforeNode) || beforeNode->deallocated) ){
-			_FIXED_FORWARD_LIST_ERROR("ForwardList:insertAfter:InvalidInputNode", indexByNode(beforeNode), beforeNode);
+			FIXED_FORWARD_LIST_ERROR_FN("ForwardList:insertAfter => InvalidInputNode", indexByNode(beforeNode), beforeNode);
 			return end();
 		}
 		
@@ -113,12 +113,13 @@ public:
 	}
 
 	Node* removeAfter(Node* beforeNode){
+		FIXED_FORWARD_LIST_TRACEBACK_ENTRY
 		IndexType removedNodeIdx;
 		bool isBeforeBegin = beforeNode == beforeBegin();
 		
 		
 		if(!isBeforeBegin && (isForeignNode(beforeNode) || beforeNode->deallocated)){
-			_FIXED_FORWARD_LIST_ERROR("ForwardList:removeAfter:InvalidInputNode", indexByNode(beforeNode), beforeNode);
+			FIXED_FORWARD_LIST_ERROR_FN("ForwardList:removeAfter => InvalidInputNode", indexByNode(beforeNode), beforeNode);
 			return beforeBegin();
 		}
 		
@@ -140,10 +141,12 @@ public:
 	}
 
 	void clearAfter(Node* beforeNode){
+		FIXED_FORWARD_LIST_TRACEBACK_ENTRY
 		while(removeAfter(beforeNode) != end());
 	}
 
 	void clear() {
+		FIXED_FORWARD_LIST_TRACEBACK_ENTRY
 		clearAfter(beforeBegin());
 	}
 

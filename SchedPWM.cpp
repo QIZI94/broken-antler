@@ -7,7 +7,7 @@
 
 
 
-#define DEBUG_SCHED_PMW
+//#define DEBUG_SCHED_PMW
 
 static const char PROGMEM NOT_EQUAL_TO[] = " != ";
 static const char PROGMEM EQUAL_TO[] = " == ";
@@ -50,7 +50,8 @@ else{\
 
 
 
-void ScheduledPWM::panicOnStepError(const char* msg, size_t index, void* addr){
+void detail::panicOnStepError(const char* msg, size_t index, void* addr){
+	PanicTrace::printLatest();
 	char indexAndAddrStr[40];
 	sprintf(indexAndAddrStr, "PANIC! -> (%p):[%u] -> ", addr, index);
 	Serial.print(indexAndAddrStr);
@@ -58,6 +59,7 @@ void ScheduledPWM::panicOnStepError(const char* msg, size_t index, void* addr){
 }
 
 void ScheduledPWM::setLedPWM(LedID ledId, BrightnessType brightness){
+	SCHEDULED_PWM_TRACEBACK_ENTRY
 	brightness = minBrightness > brightness ? minBrightness : brightness;
 	brightness = maxBrightness < brightness ? maxBrightness : brightness;
 	StepNode* previousNode = steps.begin();
@@ -290,6 +292,7 @@ protected:
 
 public:
 	void test(){
+		SCHEDULED_PWM_TRACEBACK_ENTRY
 		auto comparePWMStep = [](const PWMStep& left, const PWMStep& right){
 			bool isStorageEqual = left.bitStorage == right.bitStorage;
 			bool isNextIsrTimeEqual = left.nextIsrTime == right.nextIsrTime;
@@ -435,7 +438,7 @@ public:
 		TEST_CMP(computeBrightness(2), 245);
 		TEST_CMP(computeBrightness(5), 245);
 
-
+		
 		//Serial.print("Brightness: ");
 		//Serial.println(SchedPWM.computeBrightness(3));
 		while(!pwmISR());
