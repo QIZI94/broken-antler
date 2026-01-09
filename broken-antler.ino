@@ -81,7 +81,7 @@ void setup()
   	initAnimations();
 	initRTC();
 
-	FixedForwardList<10, int> list {10};
+	/*FixedForwardList<10, int> list {10};
 	using Node = FixedForwardList<10, int>::Node;
 	for(const auto& a : list.nodes){
 		Serial.print(a.nextIndex());
@@ -126,7 +126,7 @@ void setup()
 		Serial.print(" ");
 		Serial.println(a.value);
 		
-	}
+	}*/
 	/*
 	for(const auto& a : SchedPWM.steps){
 		Serial.print("bitStorage: ");
@@ -156,7 +156,7 @@ void setup()
 	Serial.println();
 	
 	//SchedPWM.steps.insertAfter(SchedPWM.steps.begin(), {});
-	SchedPWM.pwmISR();
+	/*SchedPWM.pwmISR();
 	//Serial.println(SchedPWM.steps.indexByNode(SchedPWM.steps.begin()));
 	SchedPWM.setLedPWM(4, 50);
 	
@@ -174,7 +174,14 @@ void setup()
 	SchedPWM.setLedPWM(2, 20);
 	while(!SchedPWM.pwmISR());
 	SchedPWM.setLedPWM(2, 255);
+	SchedPWM.setLedPWM(5, 255);
 	while(!SchedPWM.pwmISR());
+
+	Serial.print("Brightness: ");
+	Serial.println(SchedPWM.computeBrightness(3));*/
+
+	testScheduledPWM();
+
 	//Serial.print("AAAA: ");
 	//Serial.println(SchedPWM.isLedExclusive(0,0x02));
 
