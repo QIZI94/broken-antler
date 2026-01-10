@@ -15,11 +15,40 @@
 
 #include <inttypes.h>
 
-template<uint64_t N, typename T, typename idx_t = uint8_t> 
+namespace detail{
+template<size_t N, int Tag>
+struct FittingUnsignedIntImpl;
+
+template<size_t N>
+struct FittingUnsignedInt {
+    static constexpr int tag =
+        (N <= UINT8_MAX) ? 0 :
+        (N <= UINT16_MAX) ? 1 :
+        (N <= UINT32_MAX)  ? 2 : 3;
+
+    using type = typename FittingUnsignedIntImpl<N, tag>::type;
+};
+
+/* specializations */
+template<size_t N>
+struct FittingUnsignedIntImpl<N, 0> { using type = uint8_t; };
+
+template<size_t N>
+struct FittingUnsignedIntImpl<N, 1> { using type = uint16_t; };
+
+template<size_t N>
+struct FittingUnsignedIntImpl<N, 2> { using type = uint32_t; };
+
+template<size_t N>
+struct FittingUnsignedIntImpl<N, 3> { using type = uint64_t; };
+	
+} // detail
+
+template<size_t N, typename T> 
 class FixedForwardList{
 public:
 
-	using IndexType = idx_t;
+	using IndexType = typename detail::FittingUnsignedInt<N>::type;
 	using SizeType = IndexType;
 	static constexpr SizeType BUFFER_SIZE = N;
 	static constexpr SizeType BUFFER_END_INDEX = BUFFER_SIZE;
