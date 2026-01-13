@@ -9,46 +9,6 @@
 
 //#define DEBUG_SCHED_PMW
 
-static const char PROGMEM NOT_EQUAL_TO[] = " != ";
-static const char PROGMEM EQUAL_TO[] = " == ";
-static const char PROGMEM SEPARATOR[] = "-------------------";
-static const char PROGMEM TEST_FAILED[] = "--> TEST FAILED <--";
-static const char PROGMEM SUCCESSFUL[] = "' - SUCCESSFUL";
-static const char PROGMEM SINGLE_QUOTE[] = "'";
-
-
-#define TEST_CMP(LEFT, RIGHT)\
-Serial.println((const __FlashStringHelper *)SEPARATOR);\
-if(LEFT != RIGHT){\
-	Serial.println((const __FlashStringHelper *)TEST_FAILED);\
-	Serial.print(F(#LEFT));\
-	Serial.print((const __FlashStringHelper *) NOT_EQUAL_TO);\
-	Serial.println(F(#RIGHT));\
-	PANIC_RAW((const __FlashStringHelper *)SINGLE_QUOTE);\
-}\
-else{\
-	Serial.print(F(#LEFT));\
-	Serial.print((const __FlashStringHelper *) EQUAL_TO);\
-	Serial.print(F(#RIGHT));\
-	Serial.println((const __FlashStringHelper *)SUCCESSFUL);\
-}
-
-#define TEST_STATEMENT(INIT_STATEMENT, TEST_STATEMENT_TRUE)\
-Serial.println((const __FlashStringHelper *)SEPARATOR);\
-INIT_STATEMENT;\
-if(!TEST_STATEMENT_TRUE){\
-	Serial.println((const __FlashStringHelper *)TEST_FAILED);\
-	Serial.print('\'');\
-	Serial.print(F(#INIT_STATEMENT));\
-	PANIC_RAW((const __FlashStringHelper *)SINGLE_QUOTE);\
-}\
-else{\
-	Serial.print('\'');\
-	Serial.print(F(#INIT_STATEMENT));\
-	Serial.println((const __FlashStringHelper *)SUCCESSFUL);\
-}
-
-
 
 void detail::panicOnStepError(const char* msg, size_t index, void* addr){
 	PanicTrace::printLatest();
@@ -58,399 +18,238 @@ void detail::panicOnStepError(const char* msg, size_t index, void* addr){
 	PANIC_RAW((const __FlashStringHelper *)msg);	
 }
 
-void ScheduledPWM::setLedPWM(LedID ledId, BrightnessType brightness){
-	SCHEDULED_PWM_TRACEBACK_ENTRY
-	brightness = minBrightness > brightness ? minBrightness : brightness;
-	brightness = maxBrightness < brightness ? maxBrightness : brightness;
-	StepNode* previousNode = steps.begin();
+
+
+namespace SPWM_ATmega328P{
+
+	using PortIndex = SharedImpl::PortIndex;
+	using PortMasks = SharedImpl::PortMasks;
+	struct PortIndexAndMask{
+		PortIndex portIndex;
+		uint8_t mask;
+	};
+//#define SPWM_ATmega328P_TEST
+#ifdef SPWM_ATmega328P_TEST
+	static volatile uint8_t fakePort[PortIndex::PORT_COUNT]{0,0b1000};
+	static volatile uint8_t* portsPtr[PortIndex::PORT_COUNT]{
+		&fakePort[PortIndex::PORTD_INDEX],
+		&fakePort[PortIndex::PORTB_INDEX],
+		&fakePort[PortIndex::PORTC_INDEX]
+	};
+#else
+	static volatile uint8_t* portsPtr[PortIndex::PORT_COUNT]{
+		&PORTD,
+		&PORTB,
+		&PORTC
+	};
+#endif
+	static PortIndex otherPortIndexes[PortIndex::PORT_COUNT][PortIndex::PORT_COUNT - 1]{
+		{PortIndex::PORTB_INDEX, PortIndex::PORTC_INDEX},
+		{PortIndex::PORTD_INDEX, PortIndex::PORTC_INDEX},
+		{PortIndex::PORTD_INDEX, PortIndex::PORTB_INDEX}
+	};
 	
-	StepNode* nodeToInsertAfter;
-	if(brightness == 0){
-		unassignLed(ledId, previousNode->value.bitStorage);
-		nodeToInsertAfter = steps.end();
-	}
-	else {
-		assignLed(ledId, previousNode->value.bitStorage);
-		nodeToInsertAfter = nullptr;
-	}
-	StepNode* currentNode = steps.nextNode(previousNode);
-	bool pastInstanceRemoved = false;
-	
-	while(1){
-
-		if(currentNode == steps.end()){
-			if(nodeToInsertAfter == nullptr){
-				nodeToInsertAfter = previousNode;
-#ifdef DEBUG_SCHED_PMW
-				Serial.println("Hint insert after end");
-#endif
-			}
-			break;
-		}
-		PWMStep& previousStep = previousNode->value;
-		PWMStep& currentStep = currentNode->value;
-		StepNode* nextNode = steps.nextNode(currentNode);
-#ifdef DEBUG_SCHED_PMW
-		Serial.print("Input mask: ");
-		Serial.print(0x01 << ledId, BIN);
-		Serial.print(" Step mask: ");
-		Serial.println(currentNode->value.bitStorage, BIN);
-#endif
-		if(isLedExclusive(ledId, currentStep.bitStorage)){
-#ifdef DEBUG_SCHED_PMW
-			Serial.println("removing unique");
-#endif
-			//previousStep.nextIsrTime = currentStep.nextIsrTime;
-			currentNode = steps.removeAfter(previousNode);
-			continue;
-		}
-		if(
-			!pastInstanceRemoved &&
-			!isLedAssigned(ledId, currentStep.bitStorage) && 
-			nextNode != steps.end()
-		){
-			if(!isLedStepShared(ledId, previousStep.bitStorage, currentStep.bitStorage)){
-
-			
-#ifdef DEBUG_SCHED_PMW
-				Serial.println("removing previous");
-#endif
-				previousStep.nextIsrTime = currentStep.nextIsrTime;
-				currentNode = steps.removeAfter(previousNode);
-				pastInstanceRemoved = true;
-				continue;
-			}
-#ifdef DEBUG_SCHED_PMW
-			Serial.println("Attempted removing previous");
-#endif
-		}
-		
-
-		if(previousStep.nextIsrTime < brightness){
-			
-			assignLed(ledId, currentStep.bitStorage);
-
-		}
-		else if(previousStep.nextIsrTime > brightness){
-			if(nodeToInsertAfter == nullptr){
-				
-				nodeToInsertAfter = previousNode;
-#ifdef DEBUG_SCHED_PMW
-				Serial.print("Hint insert after greater: ");
-				Serial.println(previousStep.nextIsrTime);
-#endif
-			}
-			unassignLed(ledId, currentStep.bitStorage);
-		}
-		else{
-			unassignLed(ledId, currentStep.bitStorage);
-			nodeToInsertAfter = steps.end();
-		}
-
-		previousNode = currentNode;
-		currentNode = nextNode;
-	}
-	if(nodeToInsertAfter != nullptr && nodeToInsertAfter != steps.end()){
-		PWMStep& referenceStep = nodeToInsertAfter->value;
-		
-		StepNode* newStepNode = steps.insertAfter(nodeToInsertAfter, referenceStep);
-#ifdef DEBUG_SCHED_PMW
-		Serial.print("New step index: ");
-		Serial.println(steps.indexByNode(newStepNode));
-#endif
-		referenceStep.nextIsrTime = brightness;
-		unassignLed(
-			ledId,
-			newStepNode->value.bitStorage		
-		);
-	}
-}
-
-bool ScheduledPWM::pwmISR(){
-	
-	//PANIC("ScheduledPWM::pwmISR");
-	if(currentStepNode == steps.begin()){
-		onDutyCycleBegin();
-	}
-	const PWMStep& currentStep = currentStepNode->value;
-#ifdef DEBUG_SCHED_PMW
-	Serial.print('(');
-	Serial.print(size_t(currentStepNode));
-	Serial.print(')');
-	Serial.print('[');
-	Serial.print(steps.indexByNode(currentStepNode));
-	Serial.print(']');
-	Serial.print(F(" Next: "));
-	Serial.print(currentStepNode->nextIndex());
-	Serial.print(" LedMask: ");
-	Serial.print(currentStep.bitStorage, BIN);
-	Serial.print(" Brightness: ");
-	Serial.print(currentStep.nextIsrTime);
-	Serial.print(" [");
-	for(int i = 0; i < 8; i++){
-		uint8_t ledMask = 0x01<<i & 0xFE;
-		if(currentStep.bitStorage & ledMask){
-			Serial.print(size_t(i));
-			Serial.print(',');
-		}
-	}
-	Serial.println(']');
-#endif
-	processLedStep(currentStep.bitStorage);
-	setupNextIsrTime(currentStep.nextIsrTime);
-
 	
 
-	currentStepNode = steps.nextNode(currentStepNode);
-	if(currentStepNode == steps.end()){
-		onDutyCycleEnd();
-		currentStepNode = steps.begin();
-#ifdef DEBUG_SCHED_PMW
-		Serial.println();
-#endif
-		return true;
-	}
-	
-	return false;
-	
-}
 
 
-ScheduledPWM::BrightnessType ScheduledPWM::computeBrightness(ScheduledPWM::LedID ledID) const {
-	const StepNode* searchedStepNode = steps.cbegin();
-	BrightnessType foundLedIDsBrightness = 0;
-	if(isLedAssigned(ledID, searchedStepNode->value.bitStorage)){
-		while(1){
-			foundLedIDsBrightness = searchedStepNode->value.nextIsrTime;
-			searchedStepNode = steps.nextNode(searchedStepNode);
-			
-			if(searchedStepNode == steps.cend()){
-				// this should not happen, put error here
-				break;
-			}
-			
-			if(!isLedAssigned(ledID, searchedStepNode->value.bitStorage)){
-				break;
-			}
-		}
-		
-	}
-
-	return foundLedIDsBrightness;
-}
-
-
-class TestSchedPWM: protected ScheduledPWM {
-protected:
-	virtual void assignLed(LedID ledId, BitStorageType& stepStorage) override {
-		stepStorage |= 0x01 << ledId;
-	}
-
-	virtual void unassignLed(LedID ledId, BitStorageType& stepStorage) override {
-		stepStorage &= ~(0x01 << ledId);
-	}
-
-	virtual void processLedStep(const BitStorageType& stepStorage) override {
-
-	
-	}
-
-
-	virtual void setupNextIsrTime(BrightnessType nextTime) override {
-		
-	}
-
-
-	virtual bool isLedAssigned(LedID ledId, const BitStorageType& stepStorage) const override {
-		return ((0x01 << ledId) & stepStorage) != 0;
-	}
-
-
-	virtual bool isLedExclusive(LedID ledId, const BitStorageType& stepStorage) const override {
-		if(stepStorage == 0){
-			return false;
-		}
-		BitStorageType inverseLedMask = ~(0x01 << ledId);
-		return (inverseLedMask & stepStorage) == 0;
-	}
-
-	bool isLedStepShared(LedID ledId, const BitStorageType& previousStepStorage, const BitStorageType& currentStepStorage) const override {
-		uint8_t xoredStep = previousStepStorage ^ currentStepStorage;
-#ifdef DEBUG_SCHED_PMW
-		Serial.print(previousStepStorage, BIN);
-		Serial.print('^');
-		Serial.print(currentStepStorage, BIN);
-		Serial.print('=');
-		Serial.println(xoredStep, BIN);
-#endif
-		if(previousStepStorage == currentStepStorage){
-			return false;
-		}
-		return !isLedExclusive(ledId, xoredStep);
-	}
-
-
-public:
-	void test(){
-		SCHEDULED_PWM_TRACEBACK_ENTRY
-		auto comparePWMStep = [](const PWMStep& left, const PWMStep& right){
-			bool isStorageEqual = left.bitStorage == right.bitStorage;
-			bool isNextIsrTimeEqual = left.nextIsrTime == right.nextIsrTime;
-
-			if(!isStorageEqual){
-				Serial.print(F("bitStorage: "));
-				Serial.print(left.bitStorage, BIN);
-				Serial.print(F(" != "));
-				Serial.println(right.bitStorage, BIN);
-			}
-			if(!isNextIsrTimeEqual){
-				Serial.print(F("nextIsrTime: "));
-				Serial.print(left.nextIsrTime);
-				Serial.print(F(" != "));
-				Serial.println(right.nextIsrTime);
-			}
-
-			return isStorageEqual && isNextIsrTimeEqual;
+	PortIndexAndMask pinToPortIndexAndMask(SharedImpl::Pin pin){
+		PortIndexAndMask portIndexAndMask{
+			.portIndex = PortIndex::PORT_COUNT,
+			.mask = 0
 		};
-
-		const StepList& stepList = getStepList();
-		//SchedPWM.pwmISR();
-		//Serial.println(SchedPWM.steps.indexByNode(SchedPWM.steps.begin()));
-		//SchedPWM.setLedPWM(4, 50);
-		
-		TEST_STATEMENT(
-			setLedPWM(4, 50),
-			stepList.isEqual(
-				{
-					PWMStep::make(0b10000, 50),
-					PWMStep::make(0b00000, 0),
-				},
-				comparePWMStep
-			)
-		);
-		
-
-		TEST_CMP(computeBrightness(4), 50)
-		
-
-		TEST_STATEMENT(
-			setLedPWM(3, 30),
-			stepList.isEqual(
-				{
-					PWMStep::make(0b11000, 30),
-					PWMStep::make(0b10000, 50),
-					PWMStep::make(0b00000, 0),
-				},
-				comparePWMStep
-			)
-		);
-
-		TEST_CMP(computeBrightness(3), 30)
-
-		TEST_STATEMENT(
-			setLedPWM(2, 10),
-			stepList.isEqual(
-				{
-					PWMStep::make(0b11100, 10),
-					PWMStep::make(0b11000, 30),
-					PWMStep::make(0b10000, 50),
-					PWMStep::make(0b00000, 0),
-				},
-				comparePWMStep
-			)
-		);
-
-		TEST_CMP(computeBrightness(2), 10)
-		
-		TEST_STATEMENT(
-			setLedPWM(4, 70),
-			stepList.isEqual(
-				{
-					PWMStep::make(0b11100, 10),
-					PWMStep::make(0b11000, 30),
-					PWMStep::make(0b10000, 70),
-					PWMStep::make(0b00000, 0),
-				},
-				comparePWMStep
-			)
-		);
-
-		TEST_CMP(computeBrightness(4), 70)
-
-		TEST_STATEMENT(
-			setLedPWM(3, 20),
-			stepList.isEqual(
-				{
-					PWMStep::make(0b11100, 10),
-					PWMStep::make(0b11000, 20),
-					PWMStep::make(0b10000, 70),
-					PWMStep::make(0b00000, 0),
-				},
-				comparePWMStep
-			)
-		);
-
-		TEST_CMP(computeBrightness(3), 20)
-
-		//SchedPWM.pwmISR();
-		TEST_STATEMENT(
-			setLedPWM(2, 40),
-			stepList.isEqual(
-				{
-					PWMStep::make(0b11100, 20),
-					PWMStep::make(0b10100, 40),
-					PWMStep::make(0b10000, 70),
-					PWMStep::make(0b00000, 0),
-				},
-				comparePWMStep
-			)
-		);
-
-		TEST_CMP(computeBrightness(2), 40);
-
-		TEST_STATEMENT(
-			setLedPWM(2, 20),
-			stepList.isEqual(
-				{
-					PWMStep::make(0b11100, 20),
-					PWMStep::make(0b10000, 70),
-					PWMStep::make(0b00000, 0),
-				},
-				comparePWMStep
-			)
-		);
-
-		TEST_CMP(computeBrightness(2), 20);
-
-		TEST_STATEMENT(
-			setLedPWM(2, 255);setLedPWM(5, 255),
-			stepList.isEqual(
-				{
-					PWMStep::make(0b111100, 20),
-					PWMStep::make(0b110100, 70),
-					PWMStep::make(0b100100, 245),
-					PWMStep::make(0b000000, 0),
-				},
-				comparePWMStep
-			)
-		);
-
-		TEST_CMP(computeBrightness(2), 245);
-		TEST_CMP(computeBrightness(5), 245);
-
-		
-		//Serial.print("Brightness: ");
-		//Serial.println(SchedPWM.computeBrightness(3));
-		while(!pwmISR());
-		clear();
-		while(!pwmISR());
-		Serial.println("DONE");
+		if(pin >= 14){
+			portIndexAndMask.portIndex = PortIndex::PORTC_INDEX;
+			portIndexAndMask.mask = 0x01 << (pin - 14);
+		}
+		else if(pin >= 8){
+			portIndexAndMask.portIndex = PortIndex::PORTB_INDEX;
+			portIndexAndMask.mask = 0x01 << (pin - 8);
+		}
+		else {
+			portIndexAndMask.portIndex = PortIndex::PORTD_INDEX;
+			portIndexAndMask.mask = 0x01 << pin;
+		}
+		return portIndexAndMask;
 	}
 
-};
+	bool isPinExclusiveInMask(SharedImpl::Pin pin, const PortMasks& pinsStates){
+		PortIndexAndMask pinPortIndexAndMask = pinToPortIndexAndMask(pin);
+		for(PortIndex otherPortIdx : otherPortIndexes[pinPortIndexAndMask.portIndex]){
+			if(pinsStates[otherPortIdx] != 0){
+				return false;
+			}
+		}
+		uint8_t portStateStorage = pinsStates[pinPortIndexAndMask.portIndex];
+		if(portStateStorage == 0){
+			return false;
+		}
+		uint8_t inversePinMask = ~pinPortIndexAndMask.mask;
+		return (inversePinMask & portStateStorage) == 0;
+	}
 
-void testScheduledPWM(){
-	TestSchedPWM testSched;
 
-	testSched.test();
-}
+	void SharedImpl::StateStorage::assign(Pin pin, PortMasks& ownedPins){
+		PortIndexAndMask pinPortIndexAndMask = pinToPortIndexAndMask(pin);
+		volatile uint8_t* ownedMaskPtr = &ownedPins[pinPortIndexAndMask.portIndex];
+		if(((*ownedMaskPtr) & pinPortIndexAndMask.mask) == 0){
+			pinMode(pin, OUTPUT);
+			*ownedMaskPtr |= pinPortIndexAndMask.mask;
+		}
+		digitalPortStates[pinPortIndexAndMask.portIndex] |= pinPortIndexAndMask.mask;
+		//ownedPins[pinPortIndexAndMask.portIndex] |= pinPortIndexAndMask.mask;
+	}
+
+	void SharedImpl::StateStorage::unassign(Pin pin, PortMasks& ownedPins){
+		PortIndexAndMask pinPortIndexAndMask = pinToPortIndexAndMask(pin);
+		volatile uint8_t* ownedMaskPtr = &ownedPins[pinPortIndexAndMask.portIndex];
+		if(((*ownedMaskPtr) & pinPortIndexAndMask.mask) == 0){
+			pinMode(pin, OUTPUT);
+			*ownedMaskPtr |= pinPortIndexAndMask.mask;
+		}
+		digitalPortStates[pinPortIndexAndMask.portIndex] &= ~pinPortIndexAndMask.mask;
+		//ownedPins[pinPortIndexAndMask.portIndex] |= pinPortIndexAndMask.mask;
+	}
+
+	bool SharedImpl::StateStorage::isAssigned(Pin pin) const {
+		PortIndexAndMask pinPortIndexAndMask = pinToPortIndexAndMask(pin);
+		return (digitalPortStates[pinPortIndexAndMask.portIndex] & pinPortIndexAndMask.mask) != 0;
+	}
+
+	bool SharedImpl::StateStorage::isExclusive(Pin pin) const {
+		return isPinExclusiveInMask(pin, digitalPortStates);
+	}
+
+	bool SharedImpl::StateStorage::isSharedWith(Pin pin, const StateStorage &other) const {
+		//uint8_t xoredStep = previousStepStorage ^ currentStepStorage;
+
+		PortMasks xoredMasks;
+		uint8_t equalCount = 0;
+		for(uint8_t portIdx = 0; portIdx < PortIndex::PORT_COUNT; ++portIdx){
+			uint8_t xoredMask = digitalPortStates[portIdx] ^ other.digitalPortStates[portIdx];
+			if(xoredMask == 0){
+				++equalCount;
+			}
+			xoredMasks[portIdx] = xoredMask;
+		}
+
+		if(equalCount == PortIndex::PORT_COUNT){
+			return false;
+		}
+		return !isPinExclusiveInMask(pin, xoredMasks);
+	}
+
+	void SharedImpl::StateStorage::applyState(const PortMasks& ownedPins) const {
+		for(uint8_t portIdx = 0; portIdx < PortIndex::PORT_COUNT; ++portIdx){
+			volatile uint8_t* port = portsPtr[portIdx];
+			uint8_t ownedMask = ownedPins[portIdx];
+			uint8_t ownedPortMask = (*port) & (~ownedMask);
+			ownedPortMask |= digitalPortStates[portIdx] & ownedMask;
+			*port = ownedPortMask;
+		}
+	}
+
+	void SharedImpl::setNextIsrTimeForTIMER2(uint8_t brightness){
+		brightness = brightness == 1 ? 1 : brightness>>1;
+		if(brightness < OCR2A){
+			OCR2B = brightness;
+		}
+		else {
+			constexpr uint8_t MAX_BRIGHTNESS = UINT8_MAX/2;
+			OCR2B = MAX_BRIGHTNESS;
+		}
+	}
+	void SharedImpl::initTIMER2(){
+		cli();                      // stop interrupts during setup
+
+		// Reset timer configuration
+		TCCR2A = 0;
+		TCCR2B = 0;
+		TCNT2  = 0;
+
+		// ---- Compare values ----
+		OCR2A = 129;                // period reset (~120 Hz)
+		OCR2B = 0;                 
+
+		// ---- Mode: CTC ----
+		// WGM22:0 = 010 → CTC with OCR2A as TOP
+		TCCR2A |= (1 << WGM21);
+
+		// ---- Prescaler: 1024 ----
+		TCCR2B |= (1 << CS22) | (1 << CS21) | (1 << CS20);
+
+		// ---- Interrupts ----
+		TIMSK2 = 0;                 // start clean
+		TIMSK2 |= (1 << OCIE2B);    // enable ONLY Compare B interrupt
+		// OCIE2A intentionally NOT set
+
+		sei();                      // enable interrupts
+
+	}
+	ISR(TIMER2_COMPB_vect) {
+		SchedPWM_TIMER2.pwmISR();
+	}
+	void ScheduledPWM_TIMER2::testImplementation(){
+		//using StepNode = ScheduledPWM_TIMER2::StepNode;
+		//using PWMStep = ScheduledPWM_TIMER2::PWMStep;
+		
+
+		setLedPWM(2, 10);
+		setLedPWM(3, 20);
+		setLedPWM(2, 30);
+		setLedPWM(8, 50);
+		setLedPWM(A1, 50);
+		setLedPWM(13, 9);
+		//pinMode(13, OUTPUT);
+		
+		const StepList& stepList = getStepList();
+		for(const StepNode* it = stepList.cbegin(); it != stepList.cend(); it=stepList.nextNode(it)){
+			const PWMStep& step = it->value;
+			Serial.print("Step state: ");
+			Serial.print(step.bitStorage.digitalPortStates[PortIndex::PORTC_INDEX], BIN);
+			Serial.print(' ');
+			Serial.print(step.bitStorage.digitalPortStates[PortIndex::PORTB_INDEX], BIN);
+			Serial.print(' ');
+			Serial.print(step.bitStorage.digitalPortStates[PortIndex::PORTD_INDEX], BIN);
+			Serial.print('(');
+			Serial.print(step.nextIsrTime);
+			Serial.print(')');
+			Serial.print('[');
+			for(uint8_t pin = 0; pin < 21; ++pin){
+				if(step.bitStorage.isAssigned(pin)){
+					Serial.print(pin);
+					Serial.print(',');
+				}
+			}
+			Serial.print(']');
+			
+			step.bitStorage.applyState(ownedPins);
+
+			Serial.print(" Step port state: ");
+			Serial.print(*portsPtr[PortIndex::PORTC_INDEX], BIN);
+			Serial.print(' ');
+			Serial.print(*portsPtr[PortIndex::PORTB_INDEX], BIN);
+			Serial.print(' ');
+			Serial.print(*portsPtr[PortIndex::PORTD_INDEX], BIN);
+
+			Serial.print(" owned pins: ");
+			Serial.print(ownedPins[PortIndex::PORTC_INDEX], BIN);
+			Serial.print(' ');
+			Serial.print(ownedPins[PortIndex::PORTB_INDEX], BIN);
+			Serial.print(' ');
+			Serial.println(ownedPins[PortIndex::PORTD_INDEX], BIN);
+			delay(1500);
+		}
+	}
+
+	void testImplementation(){
+		//ScheduledPWM_TIMER2 schedPWM;
+		//schedPWM.testImplementation();
+		SchedPWM_TIMER2.begin();
+		SchedPWM_TIMER2.setLedPWM(13, 2);
+	}
+
+} // SPWM_ATmega328P
+
+
+

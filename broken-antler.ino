@@ -75,10 +75,10 @@ void setup()
 	buttonHandlerTimer.setup(timedButtonHandler, BUTTON_HANDLER_SAMPLING_TIME_MS);
 	
 
-	
-	initAnimationsSwitcher();
+	//enable two after done with sched pwm
+	//initAnimationsSwitcher();
 	initTimers();
-  	initAnimations();
+  	//initAnimations();
 	initRTC();
 
 	/*FixedForwardList<10, int> list {10};
@@ -180,7 +180,9 @@ void setup()
 	Serial.print("Brightness: ");
 	Serial.println(SchedPWM.computeBrightness(3));*/
 
-	testScheduledPWM();
+	//testScheduledPWM();
+	
+	SPWM_ATmega328P::testImplementation();
 
 	//Serial.print("AAAA: ");
 	//Serial.println(SchedPWM.isLedExclusive(0,0x02));
