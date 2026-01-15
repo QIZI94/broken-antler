@@ -84,7 +84,7 @@ public: // member functions
 			assignLed(ledId, previousNode->value.bitStorage);
 			nodeToInsertAfter = nullptr;
 		}
-		StepNode* currentNode = steps.nextNode(previousNode);
+		StepNode* currentNode = previousNode->nextNode();
 		bool pastInstanceRemoved = false;
 		
 		while(1){
@@ -100,7 +100,7 @@ public: // member functions
 			}
 			PWMStep& previousStep = previousNode->value;
 			PWMStep& currentStep = currentNode->value;
-			StepNode* nextNode = steps.nextNode(currentNode);
+			StepNode* nextNode = currentNode->nextNode();
 	#ifdef DEBUG_SCHED_PMW
 			Serial.print("Input mask: ");
 			Serial.print(0x01 << ledId, BIN);
@@ -112,6 +112,7 @@ public: // member functions
 				Serial.println("removing unique");
 	#endif
 				//previousStep.nextIsrTime = currentStep.nextIsrTime;
+	
 				currentNode = steps.removeAfter(previousNode);
 				continue;
 			}
@@ -217,7 +218,7 @@ public: // member functions
 
 		
 
-		currentStepNode = steps.nextNode(currentStepNode);
+		currentStepNode = currentStepNode->nextNode();
 		if(currentStepNode == steps.end()){
 			onDutyCycleEnd();
 			currentStepNode = steps.begin();
@@ -233,13 +234,14 @@ public: // member functions
 
 	BrightnessType computeBrightness(LedID ledID) const {
 		const StepNode* searchedStepNode = steps.cbegin();
+		const StepNode* cend = steps.cend();
 		BrightnessType foundLedIDsBrightness = 0;
 		if(isLedAssigned(ledID, searchedStepNode->value.bitStorage)){
 			while(1){
 				foundLedIDsBrightness = searchedStepNode->value.nextIsrTime;
-				searchedStepNode = steps.nextNode(searchedStepNode);
+				searchedStepNode = searchedStepNode->nextNode();//steps.nextNode(searchedStepNode);
 				
-				if(searchedStepNode == steps.cend()){
+				if(searchedStepNode == cend){
 					// this should not happen, put error here
 					break;
 				}
@@ -368,12 +370,16 @@ struct SharedImpl{
 
 	using PortMasks = uint8_t [PortIndex::PORT_COUNT];
 	struct StateStorage{
+		struct PortIndexAndMask{
+			PortIndex portIndex = PortIndex::PORT_COUNT;
+			uint8_t mask = 0;
+		};
 		
 		PortMasks digitalPortStates = {};
 
 		void assign(Pin pin, PortMasks& ownedPins);
 		void unassign(Pin pin, PortMasks& ownedPins);
-		bool isAssigned(Pin pin) const;
+		bool isAssigned(Pin pin,  Pin& cachedPin, PortIndexAndMask& cachedPinToPortAndMask) const;
 		bool isExclusive(Pin pin) const;
 		bool isSharedWith(Pin pin, const StateStorage& other) const;
 		void applyState(const PortMasks& ownedPins) const;
@@ -384,6 +390,9 @@ struct SharedImpl{
 	
 
 };
+
+inline SharedImpl::StateStorage::PortIndexAndMask cachedPin;
+inline SharedImpl::Pin lastPin = 0xFF;
 
 class ScheduledPWM_TIMER2 : public ScheduledPWM<12, SharedImpl::Pin,  SharedImpl::StateStorage, uint8_t>{
 public:
@@ -407,7 +416,7 @@ protected:
 	}
 
 	bool isLedAssigned(LedID ledId, const BitStorageType& stepStorage) const override {
-		return stepStorage.isAssigned(ledId);
+		return stepStorage.isAssigned(ledId, SPWM_ATmega328P::lastPin, SPWM_ATmega328P::cachedPin);
 	}
 	bool isLedExclusive(LedID ledId, const BitStorageType& stepStorage) const override {
 		return stepStorage.isExclusive(ledId);
@@ -429,11 +438,11 @@ protected:
 	void onDutyCycleBegin() override {
 		//delayMicroseconds(25);
 		
-		/*setLedPWM(2, cycleBrightness + 80);
-		setLedPWM(3, cycleBrightness + 20);
+		setLedPWM(2, cycleBrightness);
+		setLedPWM(3, cycleBrightness);
 		
-		setLedPWM(7, cycleBrightness + 60);
-		setLedPWM(8, cycleBrightness + 70);*/
+		setLedPWM(7, cycleBrightness);
+		setLedPWM(8, cycleBrightness);
 
 		setLedPWM(12, cycleBrightness);
 		setLedPWM(13, cycleBrightness);
@@ -449,6 +458,7 @@ protected:
 	uint8_t cycleBrightness = 1;
 	int8_t direction = 1;
 	SharedImpl::PortMasks ownedPins = {};
+	
 };
 
 inline ScheduledPWM_TIMER2 SchedPWM_TIMER2;

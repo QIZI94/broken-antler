@@ -44,47 +44,56 @@ struct FittingUnsignedIntImpl<N, 3> { using type = uint64_t; };
 	
 } // detail
 
-template<size_t N, typename T> 
+template<size_t N, typename T, bool DISABLE_SAFETY_CHECKS = false> 
 class FixedForwardList{
 public:
 
 	using IndexType = typename detail::FittingUnsignedInt<N>::type;
 	using SizeType = IndexType;
 	static constexpr SizeType BUFFER_SIZE = N;
+	static constexpr SizeType BUFFER_BEGIN_INDEX = 0;
 	static constexpr SizeType BUFFER_END_INDEX = BUFFER_SIZE;
 
 	struct Node{
-		inline IndexType nextIndex() const {
-			return next;
-		}
 		inline bool isValid() const {
 			return !deallocated;
 		}
+
+		inline Node* nextNode(){
+			return next_ptr;
+		}
+
+		inline const Node* nextNode() const {
+			return next_ptr;
+		}
+
 		T value;
+		
+		
+		
 	private:
 		Node(){}
-		Node(const T& value, IndexType nextIndex, bool deallocated) : value(value), next(nextIndex), deallocated(deallocated) {}
-		
-		IndexType next = BUFFER_END_INDEX;
+		Node(const T& value, Node* next_ptr, bool deallocated) : value(value), next_ptr(next_ptr), deallocated(deallocated) {}
+		Node* next_ptr = nullptr;
 		bool deallocated = true;
 
 		friend FixedForwardList;
 	};
 
 	FixedForwardList(){}
-	template<SizeType INPUT_ARRAY_SIZE>
+	/*template<SizeType INPUT_ARRAY_SIZE>
 	FixedForwardList(const T (&elements)[INPUT_ARRAY_SIZE]){
 		Node* last = begin();
 		for(const T& element : elements){
 			last = insertAfter(last, element);
 		}
-	}
+	}*/
 
 
-	FixedForwardList(const T& beginValue) : nodes{Node(beginValue, BUFFER_END_INDEX, false)}, beginIndex(0), unallocatedIndex(1) {}
+	//FixedForwardList(const T& beginValue) : nodes{Node(beginValue, BUFFER_END_INDEX, false)}, beginIndex(0), unallocatedIndex(1) {}
 
 	inline Node* begin(){
-		return &nodes[beginIndex];
+		return begin_ptr;
 	}
 
 	inline Node* end(){
@@ -96,7 +105,7 @@ public:
 	}
 
 	inline const Node* cbegin() const {
-		return &nodes[beginIndex];
+		return begin_ptr;
 	}
 
 	inline const Node* cend() const {
@@ -104,38 +113,45 @@ public:
 	}
 
 	inline const Node* beforeCBegin() const {
-		return end();
+		return nullptr;
 	}
 
 	Node* insertAfter(Node* beforeNode, const T& value){
 		FIXED_FORWARD_LIST_TRACEBACK_ENTRY
-		if(unallocatedIndex >= BUFFER_END_INDEX){
-			FIXED_FORWARD_LIST_ERROR_FN("ForwardList:insertAfter => OutOfMemory", unallocatedIndex, &nodes[unallocatedIndex]);
-			return end();
+		if constexpr (!DISABLE_SAFETY_CHECKS){		
+			if(unallocatedListHead == end()){
+				FIXED_FORWARD_LIST_ERROR_FN("ForwardList:insertAfter => OutOfMemory", BUFFER_END_INDEX, unallocatedListHead);
+				return end();
+			}
 		}
 
 		bool isBeforeBegin = beforeNode == beforeBegin();
-
-		if(!isBeforeBegin && (isForeignNode(beforeNode) || beforeNode->deallocated) ){
-			FIXED_FORWARD_LIST_ERROR_FN("ForwardList:insertAfter => InvalidInputNode", indexByNode(beforeNode), beforeNode);
-			return end();
+		if constexpr (!DISABLE_SAFETY_CHECKS){
+			if(!isBeforeBegin && (isForeignNode(beforeNode) || beforeNode->deallocated) ){
+				FIXED_FORWARD_LIST_ERROR_FN("ForwardList:insertAfter => InvalidInputNode", indexByNode(beforeNode), beforeNode);
+				return end();
+			}
 		}
 		
-		IndexType newNodeIndex = allocateNode();
-
-		Node* newNodePtr = &nodes[newNodeIndex];
-		newNodePtr->value = value;
-		newNodePtr->deallocated = false;
+		//IndexType newNodeIndex = allocateNode();
+		//Node* newNodePtr = &nodes[newNodeIndex];
+		Node* newNode = allocateNode();
+		newNode->value = value;
+		newNode->deallocated = false;
 		if(isBeforeBegin){
-			newNodePtr->next = beginIndex;
-			beginIndex = newNodeIndex;
+			//newNodePtr->next = beginIndex;
+			newNode->next_ptr = begin_ptr;
+			begin_ptr = newNode;
 		}
 		else{
-			IndexType nextNodeIndex = beforeNode->next;
-			beforeNode->next = newNodeIndex;
-			newNodePtr->next = nextNodeIndex;
+			//IndexType nextNodeIndex = beforeNode->next;
+			Node* nextNode = beforeNode->next_ptr;
+			//beforeNode->next = newNodeIndex;
+			beforeNode->next_ptr = newNode;
+			//newNodePtr->next = nextNodeIndex;
+			newNode->next_ptr = nextNode;
 		}
-		return newNodePtr;
+		return newNode;
 		//previousNode->nextIndex
 		
 
@@ -143,28 +159,38 @@ public:
 
 	Node* removeAfter(Node* beforeNode){
 		FIXED_FORWARD_LIST_TRACEBACK_ENTRY
-		IndexType removedNodeIdx;
+
+		//IndexType removedNodeIdx;
+		Node* removedNode;
 		bool isBeforeBegin = beforeNode == beforeBegin();
 		
-		
-		if(!isBeforeBegin && (isForeignNode(beforeNode) || beforeNode->deallocated)){
-			FIXED_FORWARD_LIST_ERROR_FN("ForwardList:removeAfter => InvalidInputNode", indexByNode(beforeNode), beforeNode);
-			return beforeBegin();
+		if constexpr (!DISABLE_SAFETY_CHECKS){
+			if(!isBeforeBegin && (isForeignNode(beforeNode) || beforeNode->deallocated)){
+				FIXED_FORWARD_LIST_ERROR_FN("ForwardList:removeAfter => InvalidInputNode", indexByNode(beforeNode), beforeNode);
+				return beforeBegin();
+			}
 		}
 		
 		Node* nextNode;
 		if(isBeforeBegin){
-			removedNodeIdx = beginIndex;
-			beginIndex = nodes[beginIndex].next;
-			nextNode = begin();
+			//removedNodeIdx = beginIndex;
+			removedNode = begin();
+			//beginIndex = nodes[beginIndex].next;
+			begin_ptr = nextNode = removedNode->next_ptr;
+			
+			//nextNode = begin();
 		}
 		else {
-			removedNodeIdx = beforeNode->next;
-			beforeNode->next = nodes[removedNodeIdx].next;
-			nextNode = nodeByIndex(beforeNode->next);
+			//removedNodeIdx = beforeNode->next;
+			removedNode = beforeNode->next_ptr;
+			//beforeNode->next = nodes[removedNodeIdx].next;
+			nextNode = beforeNode->next_ptr = removedNode->next_ptr;
+			//beforeNode->nextPtr = &nodes[beforeNode->next];
+			//nextNode = nodeByIndex(beforeNode->next);
 		}
 		
-		freeNode(removedNodeIdx);
+		//freeNode(removedNodeIdx);
+		freeNode(removedNode);
 
 		return nextNode;
 	}
@@ -208,12 +234,7 @@ public:
 		return size_t(nodeAddr - arrayBeginAddr) / sizeof(Node);
 	}
 
-	inline Node* nextNode(Node* beforeNode){
-		return nodeByIndex(beforeNode->next);
-	}
-	inline const Node* nextNode(const Node* beforeNode) const{
-		return nodeByIndex(beforeNode->next);
-	}
+
 	template<typename Callable>
 	constexpr bool isEqual(const FixedForwardList& other, Callable callable) const {
 		const Node* otherNode = other.cbegin();
@@ -230,7 +251,7 @@ public:
 			}
 
 
-			otherNode = other.nextNode(otherNode);
+			otherNode = otherNode->nextNode;
 			node = nextNode(node);
 		}
 		return true;
@@ -256,7 +277,7 @@ public:
 
 
 			++otherIt;
-			node = nextNode(node);
+			node = node->nextNode();
 		}
 		return true;
 
@@ -269,27 +290,37 @@ public:
 	static constexpr SizeType capacity() {
 		return BUFFER_SIZE;
 	}
-private:
-	IndexType allocateNode() {
-		IndexType newNodeIdx = unallocatedIndex;
-		IndexType newUnallocatedIndex = nodes[newNodeIdx].next;
+//private:
+	Node* allocateNode() {
+		//IndexType newNodeIdx = unallocatedIndex;
+		Node* newNode = unallocatedListHead;
+		//IndexType newUnallocatedIndex = nodes[newNodeIdx].next;
+		Node* newUnallocatedNode = newNode->next_ptr;
 		
-		if(newUnallocatedIndex == BUFFER_END_INDEX){
-			unallocatedIndex++;
+		
+		//if(newUnallocatedIndex == BUFFER_END_INDEX){
+		if(newUnallocatedNode == nullptr){
+			//unallocatedIndex++;
+			unallocatedListHead++;
 		}
 		else {
-			unallocatedIndex = newUnallocatedIndex;
+			unallocatedListHead = newUnallocatedNode;
+			//unallocatedIndex = newUnallocatedIndex;
 		}
 		++allocatedCount;
 
-		return newNodeIdx;
+		//return newNodeIdx;
+		return newNode;
 	}
 
-	void freeNode(IndexType nodeIdx){
-		Node& node = nodes[nodeIdx];
-		node.next = unallocatedIndex;
-		node.deallocated = true;
-		unallocatedIndex = nodeIdx;
+	void freeNode(Node* node){
+		//Node& node = nodes[nodeIdx];
+		//node.next = unallocatedIndex;
+		node->next_ptr = unallocatedListHead;
+		//node.deallocated = true;
+		node->deallocated = true;
+		//unallocatedIndex = nodeIdx;
+		unallocatedListHead = node;
 		--allocatedCount;
 	}
 
@@ -298,13 +329,15 @@ private:
 		size_t beginAddr = size_t(&nodes[0]);
 		size_t endAddr = size_t(end());
 
-		return (nodeAddr < beginAddr || nodeAddr > endAddr);
+		return (nodeAddr < beginAddr || nodeAddr >= endAddr);
 	}
 
 	Node nodes[BUFFER_SIZE];
 	
-	IndexType beginIndex = BUFFER_END_INDEX;
-	IndexType unallocatedIndex = 0;
+	//IndexType beginIndex = BUFFER_END_INDEX;
+	Node* begin_ptr = &nodes[BUFFER_END_INDEX];
+	//IndexType unallocatedIndex = 0;
+	Node* unallocatedListHead = &nodes[BUFFER_BEGIN_INDEX];
 	SizeType allocatedCount = 0;
 
 };

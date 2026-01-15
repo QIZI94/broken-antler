@@ -28,10 +28,12 @@
 #include "rtc.h"
 #include "SchedPWM.h"
 
+#include "panic.h"
+#define FIXED_FORWARD_LIST_TRACEBACK_ENTRY \
+PanicTrace __traceback_entry(__FILENAME__, __func__, __LINE__);
 // remove me after done
 #include "fixedforwardlist.h"
 
-#include "panic.h"
 
 
 #define BUTTON_HANDLER_SAMPLING_TIME_MS uint16_t(10)
@@ -81,17 +83,23 @@ void setup()
   	//initAnimations();
 	initRTC();
 
-	/*FixedForwardList<10, int> list {10};
+	FixedForwardList<10, int> list;
 	using Node = FixedForwardList<10, int>::Node;
-	for(const auto& a : list.nodes){
-		Serial.print(a.nextIndex());
+	/*for(const auto& a : list.nodes){
+		Serial.print(list.indexByNode(&a));
 		Serial.print(" ");
-		Serial.println(a.value);
+		if(a.isValid()){
+			Serial.println(a.value);
+		}
+		else {
+			Serial.print(a.value);
+			Serial.println(" Deallocated");
+		}
 		
 	}
 
 
-
+	Node* node0 = list.insertAfter(list.beforeBegin(), 10);
 	Node* node = list.insertAfter(list.begin(), 1000);
 	Node* node2 = list.insertAfter(node, 2000);
 	Node* node3 = list.insertAfter(node2, 3000);
@@ -99,32 +107,66 @@ void setup()
 	list.removeAfter(node);
 	list.removeAfter(node);
 	list.insertAfter(node, 4000);
-	list.removeAfter(list.end());
-	list.removeAfter(list.end());
+	list.removeAfter(list.beforeBegin());
+	list.removeAfter(list.beforeBegin());
 
 	 list.insertAfter(list.begin(), 2000);
 	list.insertAfter(list.begin(), 3000);
 	list.insertAfter(list.begin(), 3000);
 	list.insertAfter(list.begin(), 4000);
-	Serial.println(">>>>>>>>>>>>>>>>>>>>>>");
+	Serial.println(">>>>>>>>>>>>>>>>>>>>>>");*/
 
-	Node* it = list.begin();
-	while (it != list.end()){
-		Serial.print(it->nextIndex());
-		Serial.print(" ");
-		Serial.println(it->value);
-		it = list.nextNode(it);
-	}
+	auto printList = [&list](){
+		Node* it = list.begin();
+		while (it != list.end()){
+			
+			Serial.print(" [");
+			Serial.print(list.indexByNode(it));
+			Serial.print("] Next: ");
+			Serial.print(list.indexByNode(it->nextNode()));
+			Serial.print(" ");
+
+
+			if(it->isValid()){
+				Serial.println(it->value);
+			}
+			else {
+				Serial.print(it->value);
+				Serial.println(" Deallocated");
+			}
+			
+			it = it->nextNode();
+		}
+		Serial.println("-------------------------");
+	};
+
+
+	Node* node = list.insertAfter(list.beforeBegin(), 1000);
+	Node* node2 = list.insertAfter(list.beforeBegin(), 2000);
+	Node* node3 = list.insertAfter(node2, 3000);
+	printList();
+	list.removeAfter(node2);
+	printList();
+	Node* node4 = list.insertAfter(node2, 4000);
+	printList();
+	//Node* it = list.begin();
 	
-	Serial.println("-------------------------");
+	
+	
 
 	
 
-
+/*
 	for(auto& a : list.nodes){
-		Serial.print(a.nextIndex());
+		Serial.print(list.indexByNode(&a));
 		Serial.print(" ");
-		Serial.println(a.value);
+		if(a.isValid()){
+			Serial.println(a.value);
+		}
+		else {
+			Serial.print(a.value);
+			Serial.println(" Deallocated");
+		}
 		
 	}*/
 	/*
