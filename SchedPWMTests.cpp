@@ -51,33 +51,34 @@ else{\
 
 
 
-class TestSchedPWM: protected ScheduledPWM<12, uint8_t, uint16_t, uint8_t>  {
+class TestSchedPWM: protected ScheduledPWM<12, TestSchedPWM, uint8_t, uint16_t, uint8_t>  {
+friend ScheduledPWM;
 protected:
-	virtual void assignLed(LedID ledId, BitStorageType& stepStorage) override {
+	void assignLed(LedID ledId, BitStorageType& stepStorage) {
 		stepStorage |= 0x01 << ledId;
 	}
 
-	virtual void unassignLed(LedID ledId, BitStorageType& stepStorage) override {
+	void unassignLed(LedID ledId, BitStorageType& stepStorage) {
 		stepStorage &= ~(0x01 << ledId);
 	}
 
-	virtual void processLedStep(const BitStorageType& stepStorage) override {
+	void processLedStep(const BitStorageType& stepStorage) {
 
 	
 	}
 
 
-	virtual void setupNextIsrTime(BrightnessType nextTime) override {
+	void setupNextIsrTime(BrightnessType nextTime) {
 		
 	}
 
 
-	virtual bool isLedAssigned(LedID ledId, const BitStorageType& stepStorage) const override {
+	bool isLedAssigned(LedID ledId, const BitStorageType& stepStorage) const {
 		return ((0x01 << ledId) & stepStorage) != 0;
 	}
 
 
-	virtual bool isLedExclusive(LedID ledId, const BitStorageType& stepStorage) const override {
+	bool isLedExclusive(LedID ledId, const BitStorageType& stepStorage) const {
 		if(stepStorage == 0){
 			return false;
 		}
@@ -85,7 +86,7 @@ protected:
 		return (inverseLedMask & stepStorage) == 0;
 	}
 
-	bool isLedStepShared(LedID ledId, const BitStorageType& previousStepStorage, const BitStorageType& currentStepStorage) const override {
+	bool isLedStepShared(LedID ledId, const BitStorageType& previousStepStorage, const BitStorageType& currentStepStorage) const {
 		uint8_t xoredStep = previousStepStorage ^ currentStepStorage;
 #ifdef DEBUG_SCHED_PMW
 		Serial.print(previousStepStorage, BIN);
@@ -98,6 +99,14 @@ protected:
 			return false;
 		}
 		return !isLedExclusive(ledId, xoredStep);
+	}
+
+	void onDutyCycleBegin(){
+		
+	}
+
+	void onDutyCycleEnd(){
+		
 	}
 
 
@@ -250,13 +259,76 @@ public:
 		TEST_CMP(computeBrightness(2), getMaxBrightness());
 		TEST_CMP(computeBrightness(5), getMaxBrightness());
 
+		TEST_STATEMENT(
+			setLedPWM(4, 0),
+			stepList.isEqual(
+				{
+					PWMStep::make(0b101100, 20),
+					PWMStep::make(0b100100, 245),
+					PWMStep::make(0b000000, 0),
+				},
+				comparePWMStep
+			)
+		);
+
+		TEST_STATEMENT(
+			setLedPWM(4, 70),
+			stepList.isEqual(
+				{
+					PWMStep::make(0b111100, 20),
+					PWMStep::make(0b110100, 70),
+					PWMStep::make(0b100100, 245),
+					PWMStep::make(0b000000, 0),
+				},
+				comparePWMStep
+			)
+		);
+
+		TEST_STATEMENT(
+			setLedPWM(2, 0),
+			stepList.isEqual(
+				{
+					PWMStep::make(0b111000, 20),
+					PWMStep::make(0b110000, 70),
+					PWMStep::make(0b100000, 245),
+					PWMStep::make(0b000000, 0),
+				},
+				comparePWMStep
+			)
+		);
+
 		
 		//Serial.print("Brightness: ");
 		//Serial.println(SchedPWM.computeBrightness(3));
-		while(!pwmISR());
+		constexpr StepList::SizeType EXPECTED_SIZE = 4;
+		
+		
+		TEST_CMP(getStepList().size(), EXPECTED_SIZE);
+
+
+		StepList::SizeType stepCount = 1;
+		while(!pwmISR()){
+			++stepCount;
+		}
+		constexpr StepList::SizeType FIRST_PWM_ISR_ITERATED_STEP_COUNT = EXPECTED_SIZE;
+		TEST_CMP(getStepList().size(), FIRST_PWM_ISR_ITERATED_STEP_COUNT);
+		
+		stepCount = 1;
+		while(!pwmISR()){
+			++stepCount;
+		}
+
+		constexpr StepList::SizeType SECOND_PWM_ISR_ITERATED_STEP_COUNT = EXPECTED_SIZE;
+		TEST_CMP(getStepList().size(), SECOND_PWM_ISR_ITERATED_STEP_COUNT);
 		clear();
-		while(!pwmISR());
-		Serial.println("DONE");
+		stepCount = 1;
+		while(!pwmISR()){
+			++stepCount;
+		}
+		constexpr StepList::SizeType CLEARED_PWM_ISR_ITERATED_STEP_COUNT = 1;
+		TEST_CMP(getStepList().size(), CLEARED_PWM_ISR_ITERATED_STEP_COUNT);
+
+		Serial.println(F("DONE"));
 	}
 
 };
