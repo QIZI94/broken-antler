@@ -27,7 +27,7 @@ namespace detail{
 #include "fixedforwardlist.h"
 #endif 
 
-template<size_t N, typename LED_ID_TYPE, typename STEP_STORAGE_TYPE, typename BRIGHTNESS_TYPE = uint8_t>
+template<size_t N, class Impl, typename LED_ID_TYPE,  typename STEP_STORAGE_TYPE, typename BRIGHTNESS_TYPE = uint8_t>
 class ScheduledPWM{
 	
 public: // static variables
@@ -50,7 +50,7 @@ public: // types
 		}
 	};
 
-	using StepList = FixedForwardList<LED_COUNT + 1, PWMStep>;
+	using StepList = FixedForwardList<LED_COUNT + 1, PWMStep, true>;
 	using StepNode = typename StepList::Node;
 
 	//using ValueType = uint8_t;
@@ -190,6 +190,7 @@ public: // member functions
 			onDutyCycleBegin();
 		}
 		const PWMStep& currentStep = currentStepNode->value;
+
 	#ifdef DEBUG_SCHED_PMW
 		Serial.print('(');
 		Serial.print(size_t(currentStepNode));
@@ -198,7 +199,7 @@ public: // member functions
 		Serial.print(steps.indexByNode(currentStepNode));
 		Serial.print(']');
 		Serial.print(F(" Next: "));
-		Serial.print(currentStepNode->nextIndex());
+		Serial.print(steps.indexByNode(currentStepNode->nextNode()));
 		Serial.print(" LedMask: ");
 		Serial.print(currentStep.bitStorage, BIN);
 		Serial.print(" Brightness: ");
@@ -277,7 +278,7 @@ public: // member functions
 		return maxBrightness;
 	}
 
-protected: // member functions
+private: // member functions
 	/**
 	 * Assign Led to scheduled step storage in PWM Cycle.
 	 * This has to be assigned in a way for isLedAssigned() and isLedExclusive to detect assigned Led
@@ -286,7 +287,9 @@ protected: // member functions
 	 * @param ledId used for unique identification of led
 	 * @param stepStorage writable step storage to assign Led into
 	*/
-	virtual void assignLed(LedID ledId, BitStorageType& stepStorage) = 0;
+	void assignLed(LedID ledId, BitStorageType& stepStorage){
+		static_cast<Impl*>(this)->assignLed(ledId, stepStorage);
+	}
 	/**
 	 * Unassigned Led to scheduled step storage in PWM Cycle.
 	 * This has to be unassigned in a way for isLedAssigned() and isLedExclusive to not detect unassigned Led
@@ -295,14 +298,18 @@ protected: // member functions
 	 * @param ledId used for unique identification of led
 	 * @param stepStorage writable step storage to unassign Led from
 	*/
-	virtual void unassignLed(LedID ledId, BitStorageType& stepStorage) = 0;
+	void unassignLed(LedID ledId, BitStorageType& stepStorage){
+		static_cast<Impl*>(this)->unassignLed(ledId, stepStorage);
+	}
 	/**
 	 * Read and apply stepStorage to turn ON or OFF all described Leds.
 	 * (called from pwmISR())
 	 *  
 	 * @param stepStorage read only step storage 
 	*/
-	virtual void processLedStep(const BitStorageType& stepStorage) = 0;
+	void processLedStep(const BitStorageType& stepStorage){
+		static_cast<Impl*>(this)->processLedStep(stepStorage);
+	}
 
 	/**
 	 * Use next time for scheduling next timer interrupt
@@ -310,8 +317,8 @@ protected: // member functions
 	 *  
 	 * @param nextTime next scheduled timmed interupt to apply next step 
 	*/
-	virtual void setupNextIsrTime(BrightnessType nextTime){
-		
+	void setupNextIsrTime(BrightnessType nextTime){
+		static_cast<Impl*>(this)->setupNextIsrTime(nextTime);
 	}
 
 	/**
@@ -322,7 +329,9 @@ protected: // member functions
 	 * @param stepStorage read only step storage to check unique Led presence
 	 * @returns If Led is assigned in stepStorage return TRUE, otherwise return FALSE.
 	*/
-	virtual bool isLedAssigned(LedID ledId, const BitStorageType& stepStorage) const = 0;
+	bool isLedAssigned(LedID ledId, const BitStorageType& stepStorage) const {
+		return static_cast<const Impl*>(this)->isLedAssigned(ledId, stepStorage);
+	}
 
 	/**
 	 * Check if Led is only one assigned in stepStorage.
@@ -332,21 +341,29 @@ protected: // member functions
 	 * @param stepStorage read only step storage to check unique Led presence
 	 * @returns If Led is uniqually assigned in stepStorage return TRUE, otherwise return FALSE.
 	*/
-	virtual bool isLedExclusive(LedID ledId, const BitStorageType& stepStorage) const = 0;
+	bool isLedExclusive(LedID ledId, const BitStorageType& stepStorage) const{
+		return static_cast<const Impl*>(this)->isLedExclusive(ledId, stepStorage);
+	}
 
-	virtual bool isLedStepShared(LedID ledId, const BitStorageType& previousStepStorage, const BitStorageType& currentStepStorage) const = 0;
+	bool isLedStepShared(LedID ledId, const BitStorageType& previousStepStorage, const BitStorageType& currentStepStorage) const{
+		return static_cast<const Impl*>(this)->isLedStepShared(ledId, previousStepStorage, currentStepStorage);
+	}
 
 	/**
 	 * Called on PWM Duty Cycle start.
 	 * (called from pwmISR())
 	*/
-	virtual void onDutyCycleBegin(){}
+	void onDutyCycleBegin(){
+		static_cast<Impl*>(this)->onDutyCycleBegin();
+	}
 
 	/**
 	 * Called on last PWM Duty Cycle after after last step is processed.
 	 * (called from pwmISR())
 	*/
-	virtual void onDutyCycleEnd(){}
+	void onDutyCycleEnd(){
+		static_cast<Impl*>(this)->onDutyCycleEnd();
+	}
 
 	
 private:
@@ -359,45 +376,113 @@ private:
 
 namespace SPWM_ATmega328P{
 
-struct SharedImpl{
-	using Pin = uint8_t;
-	enum PortIndex : uint8_t {
-			PORTD_INDEX,
-			PORTB_INDEX,
-			PORTC_INDEX,
-			PORT_COUNT
+namespace SharedImpl{
+
+using Pin = uint8_t;
+enum PortIndex : uint8_t {
+		PORTD_INDEX,
+		PORTB_INDEX,
+		PORTC_INDEX,
+		PORT_COUNT
+};
+struct PortIndexAndMask{
+	PortIndex portIndex = PortIndex::PORT_COUNT;
+	uint8_t mask = 0;
+};
+
+using PortMasks = uint8_t [PortIndex::PORT_COUNT];
+
+
+namespace helpers{
+	inline constexpr PortIndexAndMask pinToPortIndexAndMask(SharedImpl::Pin pin){
+		PortIndexAndMask portIndexAndMask;
+		if(pin >= 14){
+			portIndexAndMask.portIndex = PortIndex::PORTC_INDEX;
+			portIndexAndMask.mask = 0x01 << (pin - 14);
+		}
+		else if(pin >= 8){
+			portIndexAndMask.portIndex = PortIndex::PORTB_INDEX;
+			portIndexAndMask.mask = 0x01 << (pin - 8);
+		}
+		else {
+			portIndexAndMask.portIndex = PortIndex::PORTD_INDEX;
+			portIndexAndMask.mask = 0x01 << pin;
+		}
+		return portIndexAndMask;
+	}
+	template<size_t N>
+	struct PinMasksAndIndexesTable{
+		PortIndexAndMask lookup[N];
 	};
 
-	using PortMasks = uint8_t [PortIndex::PORT_COUNT];
-	struct StateStorage{
-		struct PortIndexAndMask{
-			PortIndex portIndex = PortIndex::PORT_COUNT;
-			uint8_t mask = 0;
-		};
-		
-		PortMasks digitalPortStates = {};
+	template<size_t N>
+	inline constexpr PinMasksAndIndexesTable<N> makePinMasksAndIndexesTable(){
+		PinMasksAndIndexesTable<N> table;
 
-		void assign(Pin pin, PortMasks& ownedPins);
-		void unassign(Pin pin, PortMasks& ownedPins);
-		bool isAssigned(Pin pin,  Pin& cachedPin, PortIndexAndMask& cachedPinToPortAndMask) const;
-		bool isExclusive(Pin pin) const;
-		bool isSharedWith(Pin pin, const StateStorage& other) const;
-		void applyState(const PortMasks& ownedPins) const;
+		for(SharedImpl::Pin pin = 0; pin < N; ++pin){
+			table.lookup[pin] = pinToPortIndexAndMask(pin);
+		}
+
+		return table;
+	}
+
+	static constexpr auto pinMasksAndIndexesTable = makePinMasksAndIndexesTable<22>();
+
+
+	inline constexpr PortIndex otherPortIndexes[PortIndex::PORT_COUNT][PortIndex::PORT_COUNT - 1]{
+		{PortIndex::PORTB_INDEX, PortIndex::PORTC_INDEX},
+		{PortIndex::PORTD_INDEX, PortIndex::PORTC_INDEX},
+		{PortIndex::PORTD_INDEX, PortIndex::PORTB_INDEX}
 	};
 
-	static void initTIMER2();
-	static void setNextIsrTimeForTIMER2(uint8_t brightness);
+	inline volatile uint8_t** GetOrderedPortsArray(){
+		//#define SPWM_ATmega328P_TEST
+		#ifdef SPWM_ATmega328P_TEST
+			static volatile uint8_t fakePort[PortIndex::PORT_COUNT]{0,0b1000};
+			static volatile uint8_t* portsPtr[PortIndex::PORT_COUNT]{
+				&fakePort[PortIndex::PORTD_INDEX],
+				&fakePort[PortIndex::PORTB_INDEX],
+				&fakePort[PortIndex::PORTC_INDEX]
+			};
+		#else
+			static volatile uint8_t* portsPtr[PortIndex::PORT_COUNT]{
+				&PORTD,
+				&PORTB,
+				&PORTC
+			};
+		#endif
+		return portsPtr;
+	}
+}
+
+struct StateStorage{
 	
+	PortMasks digitalPortStates = {};
+
+	void assign(Pin pin, PortMasks& ownedPins);
+	void unassign(Pin pin, PortMasks& ownedPins);
+	bool isAssigned(Pin pin) const;
+	bool isExclusive(Pin pin) const;
+	bool isSharedWith(Pin pin, const StateStorage& other) const;
+	void applyState(const PortMasks& ownedPins) const;
+};
+
+
+static void initTIMER2();
+static void setNextIsrTimeForTIMER2(uint8_t brightness);
+
+
+
 
 };
 
-inline SharedImpl::StateStorage::PortIndexAndMask cachedPin;
-inline SharedImpl::Pin lastPin = 0xFF;
 
-class ScheduledPWM_TIMER2 : public ScheduledPWM<12, SharedImpl::Pin,  SharedImpl::StateStorage, uint8_t>{
+
+class ScheduledPWM_TIMER2 : public ScheduledPWM<12, ScheduledPWM_TIMER2, SharedImpl::Pin,  SharedImpl::StateStorage, uint8_t>{
 public:
-	ScheduledPWM_TIMER2() : ScheduledPWM(10) {
 
+	ScheduledPWM_TIMER2() : ScheduledPWM(10) {
+		
 	}
 	void begin(){
 		SharedImpl::initTIMER2();
@@ -406,36 +491,36 @@ public:
 	void testImplementation();
 
 
-protected:
-	void assignLed(LedID ledId, BitStorageType& stepStorage) override {
+private:
+	void assignLed(LedID ledId, BitStorageType& stepStorage) {
 		stepStorage.assign(ledId, ownedPins);
 	}
 
-	void unassignLed(LedID ledId, BitStorageType& stepStorage) override {
+	void unassignLed(LedID ledId, BitStorageType& stepStorage) {
 		stepStorage.unassign(ledId, ownedPins);
 	}
 
-	bool isLedAssigned(LedID ledId, const BitStorageType& stepStorage) const override {
-		return stepStorage.isAssigned(ledId, SPWM_ATmega328P::lastPin, SPWM_ATmega328P::cachedPin);
+	bool isLedAssigned(LedID ledId, const BitStorageType& stepStorage) const {
+		return stepStorage.isAssigned(ledId);
 	}
-	bool isLedExclusive(LedID ledId, const BitStorageType& stepStorage) const override {
+	bool isLedExclusive(LedID ledId, const BitStorageType& stepStorage) const {
 		return stepStorage.isExclusive(ledId);
 	}
 
-	bool isLedStepShared(LedID ledId, const BitStorageType& previousStepStorage, const BitStorageType& currentStepStorage) const override {
+	bool isLedStepShared(LedID ledId, const BitStorageType& previousStepStorage, const BitStorageType& currentStepStorage) const {
 		return previousStepStorage.isSharedWith(ledId, currentStepStorage);
 	}
 
-	void processLedStep(const BitStorageType& stepStorage) override {
+	void processLedStep(const BitStorageType& stepStorage) {
 		stepStorage.applyState(ownedPins);
 	}
 
 
-	void setupNextIsrTime(BrightnessType nextTime) override {
+	void setupNextIsrTime(BrightnessType nextTime) {
 		SharedImpl::setNextIsrTimeForTIMER2(nextTime);
 	}
 
-	void onDutyCycleBegin() override {
+	void onDutyCycleBegin() {
 		//delayMicroseconds(25);
 		
 		setLedPWM(2, cycleBrightness);
@@ -446,6 +531,15 @@ protected:
 
 		setLedPWM(12, cycleBrightness);
 		setLedPWM(13, cycleBrightness);
+		setLedPWM(2, cycleBrightness);
+		setLedPWM(3, cycleBrightness);
+		
+		setLedPWM(7, cycleBrightness);
+		setLedPWM(8, cycleBrightness);
+
+		setLedPWM(12, cycleBrightness);
+		setLedPWM(13, cycleBrightness);
+		//Serial.println("HERE");
 		if(cycleBrightness == 255){
 			direction = -1;
 		}
@@ -454,11 +548,16 @@ protected:
 		}
 		cycleBrightness += direction;
 	}
+
+	void onDutyCycleEnd(){
+
+	}
 	
 	uint8_t cycleBrightness = 1;
 	int8_t direction = 1;
 	SharedImpl::PortMasks ownedPins = {};
 	
+	friend ScheduledPWM;
 };
 
 inline ScheduledPWM_TIMER2 SchedPWM_TIMER2;

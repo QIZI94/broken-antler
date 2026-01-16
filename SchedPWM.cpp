@@ -25,69 +25,13 @@ namespace SPWM_ATmega328P{
 	using PortIndex = SharedImpl::PortIndex;
 	using PortMasks = SharedImpl::PortMasks;
 
-	using PortIndexAndMask = SharedImpl::StateStorage::PortIndexAndMask;
-//#define SPWM_ATmega328P_TEST
-#ifdef SPWM_ATmega328P_TEST
-	static volatile uint8_t fakePort[PortIndex::PORT_COUNT]{0,0b1000};
-	static volatile uint8_t* portsPtr[PortIndex::PORT_COUNT]{
-		&fakePort[PortIndex::PORTD_INDEX],
-		&fakePort[PortIndex::PORTB_INDEX],
-		&fakePort[PortIndex::PORTC_INDEX]
-	};
-#else
-	static volatile uint8_t* portsPtr[PortIndex::PORT_COUNT]{
-		&PORTD,
-		&PORTB,
-		&PORTC
-	};
-#endif
-	static PortIndex otherPortIndexes[PortIndex::PORT_COUNT][PortIndex::PORT_COUNT - 1]{
-		{PortIndex::PORTB_INDEX, PortIndex::PORTC_INDEX},
-		{PortIndex::PORTD_INDEX, PortIndex::PORTC_INDEX},
-		{PortIndex::PORTD_INDEX, PortIndex::PORTB_INDEX}
-	};
-
-	template<size_t N>
-	struct PinMasksAndIndexesTable{
-		PortIndexAndMask lookup[N];
-	};
-	
-
-	static constexpr PortIndexAndMask pinToPortIndexAndMask(SharedImpl::Pin pin){
-		PortIndexAndMask portIndexAndMask;
-		if(pin >= 14){
-			portIndexAndMask.portIndex = PortIndex::PORTC_INDEX;
-			portIndexAndMask.mask = 0x01 << (pin - 14);
-		}
-		else if(pin >= 8){
-			portIndexAndMask.portIndex = PortIndex::PORTB_INDEX;
-			portIndexAndMask.mask = 0x01 << (pin - 8);
-		}
-		else {
-			portIndexAndMask.portIndex = PortIndex::PORTD_INDEX;
-			portIndexAndMask.mask = 0x01 << pin;
-		}
-		return portIndexAndMask;
-	}
-
-	template<size_t N>
-	constexpr PinMasksAndIndexesTable<N> makePinMasksAndIndexesTable(){
-		PinMasksAndIndexesTable<N> table;
-
-		for(SharedImpl::Pin pin = 0; pin < N; ++pin){
-			table.lookup[pin] = pinToPortIndexAndMask(pin);
-		}
-
-		return table;
-	}
-
-	constexpr auto pinMasksAndIndexesTable = makePinMasksAndIndexesTable<22>();
+	using PortIndexAndMask = SharedImpl::PortIndexAndMask;
 
 	
 
 	bool isPinExclusiveInMask(SharedImpl::Pin pin, const PortMasks& pinsStates){
-		PortIndexAndMask pinPortIndexAndMask = pinMasksAndIndexesTable.lookup[pin];
-		for(PortIndex otherPortIdx : otherPortIndexes[pinPortIndexAndMask.portIndex]){
+		PortIndexAndMask pinPortIndexAndMask = SharedImpl::helpers::pinMasksAndIndexesTable.lookup[pin];
+		for(PortIndex otherPortIdx : SharedImpl::helpers::otherPortIndexes[pinPortIndexAndMask.portIndex]){
 			if(pinsStates[otherPortIdx] != 0){
 				return false;
 			}
@@ -102,7 +46,7 @@ namespace SPWM_ATmega328P{
 
 
 	void SharedImpl::StateStorage::assign(Pin pin,  PortMasks& ownedPins){
-		PortIndexAndMask pinPortIndexAndMask = pinMasksAndIndexesTable.lookup[pin];
+		PortIndexAndMask pinPortIndexAndMask = helpers::pinMasksAndIndexesTable.lookup[pin];
 		volatile uint8_t* ownedMaskPtr = &ownedPins[pinPortIndexAndMask.portIndex];
 		if(((*ownedMaskPtr) & pinPortIndexAndMask.mask) == 0){
 			pinMode(pin, OUTPUT);
@@ -113,7 +57,7 @@ namespace SPWM_ATmega328P{
 	}
 
 	void SharedImpl::StateStorage::unassign(Pin pin, PortMasks& ownedPins){
-		PortIndexAndMask pinPortIndexAndMask = pinMasksAndIndexesTable.lookup[pin];
+		PortIndexAndMask pinPortIndexAndMask = helpers::pinMasksAndIndexesTable.lookup[pin];
 		volatile uint8_t* ownedMaskPtr = &ownedPins[pinPortIndexAndMask.portIndex];
 		if(((*ownedMaskPtr) & pinPortIndexAndMask.mask) == 0){
 			pinMode(pin, OUTPUT);
@@ -123,12 +67,12 @@ namespace SPWM_ATmega328P{
 		//ownedPins[pinPortIndexAndMask.portIndex] |= pinPortIndexAndMask.mask;
 	}
 
-	bool SharedImpl::StateStorage::isAssigned(Pin pin,  Pin& cachedPin, PortIndexAndMask& ) const {
+	bool SharedImpl::StateStorage::isAssigned(Pin pin) const {
 		/*if(true || pin != cachedPin){
 			cachedPin = pin;
 			cachedPinToPortAndMask = pinToPortIndexAndMask(pin);
 		}*/
-		PortIndexAndMask pinPortIndexAndMask = pinMasksAndIndexesTable.lookup[pin];
+		PortIndexAndMask pinPortIndexAndMask = helpers::pinMasksAndIndexesTable.lookup[pin];
 		//PortIndexAndMask pinPortIndexAndMask = pinToPortIndexAndMask(pin);
 		return (digitalPortStates[pinPortIndexAndMask.portIndex] & pinPortIndexAndMask.mask) != 0;
 	}
@@ -157,6 +101,7 @@ namespace SPWM_ATmega328P{
 	}
 
 	void SharedImpl::StateStorage::applyState(const PortMasks& ownedPins) const {
+		static volatile uint8_t** portsPtr = helpers::GetOrderedPortsArray();
 		for(uint8_t portIdx = 0; portIdx < PortIndex::PORT_COUNT; ++portIdx){
 			volatile uint8_t* port = portsPtr[portIdx];
 			uint8_t ownedMask = ownedPins[portIdx];
@@ -209,14 +154,14 @@ namespace SPWM_ATmega328P{
 	void ScheduledPWM_TIMER2::testImplementation(){
 		//using StepNode = ScheduledPWM_TIMER2::StepNode;
 		//using PWMStep = ScheduledPWM_TIMER2::PWMStep;
-		
-		
+		static volatile uint8_t** portsPtr = SharedImpl::helpers::GetOrderedPortsArray();
+		auto start = micros();
 		setLedPWM(2, 10);
 		setLedPWM(3, 20);
 		setLedPWM(2, 30);
 		setLedPWM(8, 50);
 		setLedPWM(A1, 50);
-		auto start = micros();
+		
 		setLedPWM(13, 9);
 		auto end = micros();
 		
@@ -225,6 +170,7 @@ namespace SPWM_ATmega328P{
 		computeBrightness(2);
 		computeBrightness(8);
 		computeBrightness(A1);
+		
 		computeBrightness(13);
 		
 		Serial.print("Time: ");
@@ -246,7 +192,7 @@ namespace SPWM_ATmega328P{
 			Serial.print(')');
 			Serial.print('[');
 			for(uint8_t pin = 0; pin < 21; ++pin){
-				if(step.bitStorage.isAssigned(pin, lastPin, cachedPin)){
+				if(step.bitStorage.isAssigned(pin)){
 					Serial.print(pin);
 					Serial.print(',');
 				}
@@ -270,13 +216,22 @@ namespace SPWM_ATmega328P{
 			Serial.println(ownedPins[PortIndex::PORTD_INDEX], BIN);
 			delay(1500);
 		}
+		while(!pwmISR()){
+			Serial.println("INSIDE TEST");
+		}
+		Serial.println("END");
+		
 	}
 
 	void testImplementation(){
 		ScheduledPWM_TIMER2 schedPWM;
 		schedPWM.testImplementation();
+		
 		//SchedPWM_TIMER2.begin();
+		
 		//SchedPWM_TIMER2.setLedPWM(13, 2);
+		//Serial.print("HEEEEEEER: ");
+		//Serial.println(SchedPWM_TIMER2.currentStepNode->nextNode() != SchedPWM_TIMER2.steps.end());
 	}
 
 } // SPWM_ATmega328P
