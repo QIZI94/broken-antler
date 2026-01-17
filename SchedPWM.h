@@ -27,14 +27,69 @@ namespace detail{
 #include "fixedforwardlist.h"
 #endif 
 
+
+#define _DEFINE_HAS_METHOD_IMPLEMENTED(name)                         \
+template <typename T, typename Sig>                           \
+struct has_##name##_implemented;                                    \
+                                                              \
+template <typename T, typename R, typename... Args>           \
+struct has_##name##_implemented<T, R (T::*)(Args...)> {              \
+    typedef char yes[1];                                       \
+    typedef char no[2];                                        \
+                                                              \
+    template <typename U>                                      \
+    static yes& test(                                          \
+        decltype(static_cast<R (U::*)(Args...)>(&U::name))*); \
+                                                              \
+    template <typename>                                        \
+    static no& test(...);                                      \
+                                                              \
+    static constexpr bool value =                              \
+        sizeof(test<T>(0)) == sizeof(yes);                    \
+};                                                            \
+                                                              \
+template <typename T, typename R, typename... Args>           \
+struct has_##name##_implemented<T, R (T::*)(Args...) const> {        \
+    typedef char yes[1];                                       \
+    typedef char no[2];                                        \
+                                                              \
+    template <typename U>                                      \
+    static yes& test(                                          \
+        decltype(static_cast<R (U::*)(Args...) const>(&U::name))*); \
+                                                              \
+    template <typename>                                        \
+    static no& test(...);                                      \
+                                                              \
+    static constexpr bool value =                              \
+        sizeof(test<T>(0)) == sizeof(yes);                    \
+};
+
+#define _HAS_METHOD_IMPLEMENTED_HELPER(DerivedClass, Method, ReturnType, Args) \
+static_assert(\
+	has_##Method##_implemented<DerivedClass, ReturnType (DerivedClass::*)Args>::value,\
+	"Derived class doesn't implement method with signature '" #ReturnType " " #Method #Args\
+);
+
+
+
 template<size_t N, class Impl, typename LED_ID_TYPE,  typename STEP_STORAGE_TYPE, typename BRIGHTNESS_TYPE = uint8_t>
 class ScheduledPWM{
+private: // type definitions
+	_DEFINE_HAS_METHOD_IMPLEMENTED(assignLed)
+	_DEFINE_HAS_METHOD_IMPLEMENTED(unassignLed)
+	_DEFINE_HAS_METHOD_IMPLEMENTED(processLedStep)
+	_DEFINE_HAS_METHOD_IMPLEMENTED(setupNextIsrTime)
+	_DEFINE_HAS_METHOD_IMPLEMENTED(isLedAssigned)
+	_DEFINE_HAS_METHOD_IMPLEMENTED(isLedExclusive)
+	_DEFINE_HAS_METHOD_IMPLEMENTED(isLedStepShared)
+	_DEFINE_HAS_METHOD_IMPLEMENTED(onDutyCycleBegin)
+	_DEFINE_HAS_METHOD_IMPLEMENTED(onDutyCycleEnd)
 	
 public: // static variables
 	static constexpr size_t LED_COUNT = N;
 	static constexpr uint64_t DEFAULT_MIN_BRIGHTNESS = 0;
 	static constexpr uint64_t DEFAULT_MAX_BRIGHTNESS = UINT64_MAX - 10;
-public: // types
+public: // type definitions
 	using BrightnessType = BRIGHTNESS_TYPE;
 	using LedID = LED_ID_TYPE;
 	using BitStorageType = STEP_STORAGE_TYPE;
@@ -58,10 +113,34 @@ public: // types
 
 
 public: // member functions
+
 	ScheduledPWM(
 		BrightnessType minBrightness = DEFAULT_MIN_BRIGHTNESS,
 		BrightnessType maxBrightness = DEFAULT_MAX_BRIGHTNESS
-	) : minBrightness(minBrightness), maxBrightness(maxBrightness){}
+	) : minBrightness(minBrightness), maxBrightness(maxBrightness){
+
+		// compile-time check for presence of required implementation 
+		/// void assignLed(LedID, BitStorageType&)
+		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, assignLed, void, (LedID, BitStorageType&));
+		/// void unassignLed(LedID, BitStorageType&)
+		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, unassignLed, void, (LedID, BitStorageType&));
+		/// void processLedStep(const BitStorageType&)
+		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, processLedStep, void, (const BitStorageType&));
+		/// void setupNextIsrTime(BrightnessType)
+		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, setupNextIsrTime, void, (BrightnessType));
+		/// isLedAssigned(LedID, const BitStorageType&) const
+		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, isLedAssigned, bool, (LedID, const BitStorageType&) const);
+		/// bool isLedExclusive(LedID, const BitStorageType&) const
+		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, isLedExclusive, bool, (LedID, const BitStorageType&) const);
+		/// bool isLedStepShared(LedID, const BitStorageType&, const BitStorageType&) const
+		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, isLedStepShared, bool, (LedID, const BitStorageType&, const BitStorageType&) const);
+		/// void onDutyCycleBegin()
+		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, onDutyCycleBegin, void, ());
+		/// void onDutyCycleEnd()
+		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, onDutyCycleEnd, void, ());
+		
+
+	}
 	
 	/**
 	 * Set PWM Duty cycle for specific Led by brightness/time.
@@ -92,25 +171,14 @@ public: // member functions
 			if(currentNode == steps.end()){
 				if(nodeToInsertAfter == nullptr){
 					nodeToInsertAfter = previousNode;
-	#ifdef DEBUG_SCHED_PMW
-					Serial.println("Hint insert after end");
-	#endif
 				}
 				break;
 			}
 			PWMStep& previousStep = previousNode->value;
 			PWMStep& currentStep = currentNode->value;
 			StepNode* nextNode = currentNode->nextNode();
-	#ifdef DEBUG_SCHED_PMW
-			Serial.print("Input mask: ");
-			Serial.print(0x01 << ledId, BIN);
-			Serial.print(" Step mask: ");
-			Serial.println(currentNode->value.bitStorage, BIN);
-	#endif
+
 			if(isLedExclusive(ledId, currentStep.bitStorage)){
-	#ifdef DEBUG_SCHED_PMW
-				Serial.println("removing unique");
-	#endif
 				//previousStep.nextIsrTime = currentStep.nextIsrTime;
 	
 				currentNode = steps.removeAfter(previousNode);
@@ -122,19 +190,11 @@ public: // member functions
 				nextNode != steps.end()
 			){
 				if(!isLedStepShared(ledId, previousStep.bitStorage, currentStep.bitStorage)){
-
-				
-	#ifdef DEBUG_SCHED_PMW
-					Serial.println("removing previous");
-	#endif
 					previousStep.nextIsrTime = currentStep.nextIsrTime;
 					currentNode = steps.removeAfter(previousNode);
 					pastInstanceRemoved = true;
 					continue;
 				}
-	#ifdef DEBUG_SCHED_PMW
-				Serial.println("Attempted removing previous");
-	#endif
 			}
 			
 
@@ -147,10 +207,6 @@ public: // member functions
 				if(nodeToInsertAfter == nullptr){
 					
 					nodeToInsertAfter = previousNode;
-	#ifdef DEBUG_SCHED_PMW
-					Serial.print("Hint insert after greater: ");
-					Serial.println(previousStep.nextIsrTime);
-	#endif
 				}
 				unassignLed(ledId, currentStep.bitStorage);
 			}
@@ -166,10 +222,7 @@ public: // member functions
 			PWMStep& referenceStep = nodeToInsertAfter->value;
 			
 			StepNode* newStepNode = steps.insertAfter(nodeToInsertAfter, referenceStep);
-	#ifdef DEBUG_SCHED_PMW
-			Serial.print("New step index: ");
-			Serial.println(steps.indexByNode(newStepNode));
-	#endif
+
 			referenceStep.nextIsrTime = brightness;
 			unassignLed(
 				ledId,
@@ -191,29 +244,6 @@ public: // member functions
 		}
 		const PWMStep& currentStep = currentStepNode->value;
 
-	#ifdef DEBUG_SCHED_PMW
-		Serial.print('(');
-		Serial.print(size_t(currentStepNode));
-		Serial.print(')');
-		Serial.print('[');
-		Serial.print(steps.indexByNode(currentStepNode));
-		Serial.print(']');
-		Serial.print(F(" Next: "));
-		Serial.print(steps.indexByNode(currentStepNode->nextNode()));
-		Serial.print(" LedMask: ");
-		Serial.print(currentStep.bitStorage, BIN);
-		Serial.print(" Brightness: ");
-		Serial.print(currentStep.nextIsrTime);
-		Serial.print(" [");
-		for(int i = 0; i < 8; i++){
-			uint8_t ledMask = 0x01<<i & 0xFE;
-			if(currentStep.bitStorage & ledMask){
-				Serial.print(size_t(i));
-				Serial.print(',');
-			}
-		}
-		Serial.println(']');
-	#endif
 		processLedStep(currentStep.bitStorage);
 		setupNextIsrTime(currentStep.nextIsrTime);
 
@@ -223,14 +253,10 @@ public: // member functions
 		if(currentStepNode == steps.end()){
 			onDutyCycleEnd();
 			currentStepNode = steps.begin();
-	#ifdef DEBUG_SCHED_PMW
-			Serial.println();
-	#endif
 			return true;
 		}
 		
 		return false;
-		
 	}
 
 	BrightnessType computeBrightness(LedID ledID) const {
@@ -373,6 +399,9 @@ private:
 	BrightnessType maxBrightness;
 	BrightnessType minBrightness;
 };
+
+#undef _DEFINE_HAS_METHOD_IMPLEMENTED
+#undef _HAS_METHOD_IMPLEMENTED_HELPER
 
 namespace SPWM_ATmega328P{
 
