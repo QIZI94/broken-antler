@@ -1,9 +1,6 @@
 #ifndef FIXED_FORWARD_LIST_H
 #define FIXED_FORWARD_LIST_H
 
-#ifndef ERROR_MSG_LITERAL
-#define ERROR_MSG_LITERAL(literal_str) nullptr
-#endif
 
 #ifndef FIXED_FORWARD_LIST_ERROR_FN
 #define FIXED_FORWARD_LIST_ERROR_FN(msg, index, addr)
