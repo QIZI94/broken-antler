@@ -1,9 +1,25 @@
+#include "panic.h"
+
+
+
+#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
+
+#define SCHEDULED_PWM_TRACEBACK_ENTRY \
+PanicTrace __traceback_entry(__FILENAME__, __func__, __LINE__);
+
+
+namespace detail{
+	extern void panicOnStepError(const char* msg, size_t index, void* addr);
+}
+#define FIXED_FORWARD_LIST_ERROR_FN(msg, index, addr)\
+	detail::panicOnStepError(((const char*) F(msg)), (index), (addr))
+
 #include "SchedPWM.h"
 
 
 #include <string.h>
 
-
+#include <inttypes.h>
 
 
 

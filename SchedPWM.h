@@ -3,29 +3,18 @@
 
 #include <inttypes.h>
 
-#include "leddefinition.h"
-
-#include "panic.h"
-
 #define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
 
-#define SCHEDULED_PWM_TRACEBACK_ENTRY \
-PanicTrace __traceback_entry(__FILENAME__, __func__, __LINE__);
+#ifndef SCHEDULED_PWM_TRACEBACK_ENTRY
+#define SCHEDULED_PWM_TRACEBACK_ENTRY
+#endif
 
 
 #define FIXED_FORWARD_LIST_TRACEBACK_ENTRY SCHEDULED_PWM_TRACEBACK_ENTRY
 
-namespace detail{
-	extern void panicOnStepError(const char* msg, size_t index, void* addr);
-}
-
-#define FIXED_FORWARD_LIST_ERROR_FN(msg, index, addr)\
-	detail::panicOnStepError(((const char*) F(msg)), (index), (addr))
-
-#ifdef __AVR_ATmega328P__
 
 #include "fixedforwardlist.h"
-#endif 
+
 
 
 #define _DEFINE_HAS_METHOD_IMPLEMENTED(name)                         \
@@ -403,200 +392,126 @@ private:
 #undef _DEFINE_HAS_METHOD_IMPLEMENTED
 #undef _HAS_METHOD_IMPLEMENTED_HELPER
 
-namespace SPWM_ATmega328P{
-
-namespace SharedImpl{
-
-using Pin = uint8_t;
-enum PortIndex : uint8_t {
-		PORTD_INDEX,
-		PORTB_INDEX,
-		PORTC_INDEX,
-		PORT_COUNT
-};
-struct PortIndexAndMask{
-	PortIndex portIndex = PortIndex::PORT_COUNT;
-	uint8_t mask = 0;
-};
-
-using PortMasks = uint8_t [PortIndex::PORT_COUNT];
+template<class SCHEDULED_PWM>
+class DimmingPWM {
+	public:
+	using ScheduledPWMImpl = SCHEDULED_PWM;
+	using LedID = typename ScheduledPWMImpl::LedID;
+	using BrightnessType = typename ScheduledPWMImpl::BrightnessType;
 
 
-namespace helpers{
-	inline constexpr PortIndexAndMask pinToPortIndexAndMask(SharedImpl::Pin pin){
-		PortIndexAndMask portIndexAndMask;
-		if(pin >= 14){
-			portIndexAndMask.portIndex = PortIndex::PORTC_INDEX;
-			portIndexAndMask.mask = 0x01 << (pin - 14);
+	struct DimmingState{
+		int32_t accumulatedBrightness;
+		int32_t tickRate;
+		BrightnessType targetBrightness;
+		LedID ledId;
+
+	};
+	using DimmingStateList = FixedForwardList<SCHEDULED_PWM::LED_COUNT, DimmingState>;
+	using Node = typename DimmingStateList::Node;
+
+	public: // constants
+	static constexpr uint8_t SHIFT_SCALE = 16;
+
+	public: // member functions 
+
+	template<size_t N_STATES_TO_PROCESS = DimmingStateList::BUFFER_SIZE>
+	bool process(ScheduledPWMImpl& schedPWM){
+		SCHEDULED_PWM_TRACEBACK_ENTRY
+		if(currentDimmingState == dimmingStates.end()){
+			return true;
 		}
-		else if(pin >= 8){
-			portIndexAndMask.portIndex = PortIndex::PORTB_INDEX;
-			portIndexAndMask.mask = 0x01 << (pin - 8);
+		for(size_t processedCounter = 0; processedCounter < N_STATES_TO_PROCESS; ++processedCounter){
+
+			DimmingState& dimmingState = currentDimmingState->value;
+			BrightnessType currentBrightness = dimmingState.accumulatedBrightness >> SHIFT_SCALE;
+			LedID ledId = dimmingState.ledId;
+			//LedID ledId = dimmingState.ledId;
+			//bool brightnessChanged = false;
+
+			
+
+			if(dimmingState.tickRate > 0 && currentBrightness >= dimmingState.targetBrightness){
+				currentBrightness = dimmingState.targetBrightness;
+				currentDimmingState = dimmingStates.removeAfter(previousDimmingState);
+				
+			}
+			else if(dimmingState.tickRate < 0 && currentBrightness <= dimmingState.targetBrightness){
+				currentBrightness = dimmingState.targetBrightness;
+				currentDimmingState = dimmingStates.removeAfter(previousDimmingState);
+			}
+			else {
+				
+				//for(uint16_t compensate = 0; compensate < compensateTicks; ++compensate){
+				int32_t compensatedTicks = dimmingState.tickRate * compensateTicks;
+				dimmingState.accumulatedBrightness += dimmingState.tickRate;// * compensateTicks;
+				
+				//}
+				
+				//if((dimmingState.accumulatedBrightness >> SHIFT_SCALE) != currentBrightness){
+					
+				//}
+				previousDimmingState = currentDimmingState;
+				currentDimmingState = currentDimmingState->nextNode();
+			}
+			schedPWM.setLedPWM(dimmingState.ledId, currentBrightness);
+			
+
+			if(currentDimmingState == dimmingStates.end()){
+				currentDimmingState = dimmingStates.begin();
+				previousDimmingState = dimmingStates.beforeBegin();
+				compensateTicks = 1;
+				return true;
+			}
+			else {
+				++compensateTicks;
+			}
+
+		}
+		return false;
+	}
+
+	void setDimming(LedID ledId, BrightnessType startBrightness, BrightnessType targetBrightness, uint16_t ticks){
+		SCHEDULED_PWM_TRACEBACK_ENTRY
+		Node* end = dimmingStates.end();
+
+		Node* found = nullptr;
+		for(Node* searchedDimmingState = dimmingStates.begin(); searchedDimmingState != end; searchedDimmingState = searchedDimmingState->nextNode()){
+			if(searchedDimmingState->value.ledId == ledId){
+				found = searchedDimmingState;
+				break;
+			}
+		}
+
+		int32_t scaledDelta = ((int32_t)targetBrightness - (int32_t)startBrightness) << SHIFT_SCALE;
+		if(found == nullptr){
+			dimmingStates.insertAfter(
+				dimmingStates.beforeBegin(),
+				DimmingState{
+					.accumulatedBrightness = ((int32_t)startBrightness) << SHIFT_SCALE,
+					.tickRate = scaledDelta / ticks,
+					.targetBrightness = targetBrightness,
+					.ledId = ledId
+				}
+			);
+			currentDimmingState = dimmingStates.begin();
 		}
 		else {
-			portIndexAndMask.portIndex = PortIndex::PORTD_INDEX;
-			portIndexAndMask.mask = 0x01 << pin;
+			DimmingState& reused = found->value;
+			reused.accumulatedBrightness = ((int32_t)startBrightness) << SHIFT_SCALE;
+			reused.tickRate = scaledDelta / ticks;
+			reused.targetBrightness = targetBrightness;
+			reused.ledId = ledId;
 		}
-		return portIndexAndMask;
-	}
-	template<size_t N>
-	struct PinMasksAndIndexesTable{
-		PortIndexAndMask lookup[N];
-	};
-
-	template<size_t N>
-	inline constexpr PinMasksAndIndexesTable<N> makePinMasksAndIndexesTable(){
-		PinMasksAndIndexesTable<N> table;
-
-		for(SharedImpl::Pin pin = 0; pin < N; ++pin){
-			table.lookup[pin] = pinToPortIndexAndMask(pin);
-		}
-
-		return table;
 	}
 
-	static constexpr auto pinMasksAndIndexesTable = makePinMasksAndIndexesTable<22>();
 
-
-	inline constexpr PortIndex otherPortIndexes[PortIndex::PORT_COUNT][PortIndex::PORT_COUNT - 1]{
-		{PortIndex::PORTB_INDEX, PortIndex::PORTC_INDEX},
-		{PortIndex::PORTD_INDEX, PortIndex::PORTC_INDEX},
-		{PortIndex::PORTD_INDEX, PortIndex::PORTB_INDEX}
-	};
-
-	inline volatile uint8_t** GetOrderedPortsArray(){
-		//#define SPWM_ATmega328P_TEST
-		#ifdef SPWM_ATmega328P_TEST
-			static volatile uint8_t fakePort[PortIndex::PORT_COUNT]{0,0b1000};
-			static volatile uint8_t* portsPtr[PortIndex::PORT_COUNT]{
-				&fakePort[PortIndex::PORTD_INDEX],
-				&fakePort[PortIndex::PORTB_INDEX],
-				&fakePort[PortIndex::PORTC_INDEX]
-			};
-		#else
-			static volatile uint8_t* portsPtr[PortIndex::PORT_COUNT]{
-				&PORTD,
-				&PORTB,
-				&PORTC
-			};
-		#endif
-		return portsPtr;
-	}
-}
-
-struct StateStorage{
-	
-	PortMasks digitalPortStates = {};
-
-	void assign(Pin pin, PortMasks& ownedPins);
-	void unassign(Pin pin, PortMasks& ownedPins);
-	bool isAssigned(Pin pin) const;
-	bool isExclusive(Pin pin) const;
-	bool isSharedWith(Pin pin, const StateStorage& other) const;
-	void applyState(const PortMasks& ownedPins) const;
+	DimmingStateList dimmingStates;
+	Node* currentDimmingState = dimmingStates.begin();
+	Node* previousDimmingState = dimmingStates.beforeBegin();
+	uint16_t compensateTicks = 1;
 };
 
 
-static void initTIMER2();
-static void setNextIsrTimeForTIMER2(uint8_t brightness);
-
-
-
-
-};
-
-
-
-class ScheduledPWM_TIMER2 : public ScheduledPWM<12, ScheduledPWM_TIMER2, SharedImpl::Pin,  SharedImpl::StateStorage, uint8_t>{
-public:
-
-	ScheduledPWM_TIMER2() : ScheduledPWM(10) {
-		
-	}
-	void begin(){
-		SharedImpl::initTIMER2();
-	}
-
-	void testImplementation();
-
-
-private:
-	void assignLed(LedID ledId, BitStorageType& stepStorage) {
-		stepStorage.assign(ledId, ownedPins);
-	}
-
-	void unassignLed(LedID ledId, BitStorageType& stepStorage) {
-		stepStorage.unassign(ledId, ownedPins);
-	}
-
-	bool isLedAssigned(LedID ledId, const BitStorageType& stepStorage) const {
-		return stepStorage.isAssigned(ledId);
-	}
-	bool isLedExclusive(LedID ledId, const BitStorageType& stepStorage) const {
-		return stepStorage.isExclusive(ledId);
-	}
-
-	bool isLedStepShared(LedID ledId, const BitStorageType& previousStepStorage, const BitStorageType& currentStepStorage) const {
-		return previousStepStorage.isSharedWith(ledId, currentStepStorage);
-	}
-
-	void processLedStep(const BitStorageType& stepStorage) {
-		stepStorage.applyState(ownedPins);
-	}
-
-
-	void setupNextIsrTime(BrightnessType nextTime) {
-		SharedImpl::setNextIsrTimeForTIMER2(nextTime);
-	}
-
-	void onDutyCycleBegin() {
-		//delayMicroseconds(25);
-		
-		setLedPWM(2, cycleBrightness);
-		setLedPWM(3, cycleBrightness);
-		
-		setLedPWM(7, cycleBrightness);
-		setLedPWM(8, cycleBrightness);
-
-		setLedPWM(12, cycleBrightness);
-		setLedPWM(13, cycleBrightness);
-		setLedPWM(2, cycleBrightness);
-		setLedPWM(3, cycleBrightness);
-		
-		setLedPWM(7, cycleBrightness);
-		setLedPWM(8, cycleBrightness);
-
-		setLedPWM(12, cycleBrightness);
-		setLedPWM(13, cycleBrightness);
-		//Serial.println("HERE");
-		if(cycleBrightness == 255){
-			direction = -1;
-		}
-		else if(cycleBrightness == 1){
-			direction = 1;
-		}
-		cycleBrightness += direction;
-	}
-
-	void onDutyCycleEnd(){
-
-	}
-	
-	uint8_t cycleBrightness = 1;
-	int8_t direction = 1;
-	SharedImpl::PortMasks ownedPins = {};
-	
-	friend ScheduledPWM;
-};
-
-inline ScheduledPWM_TIMER2 SchedPWM_TIMER2;
-extern void testImplementation();
-}
-
-//inline ScheduledPWM SchedPWM;
-
-
-
-extern void testScheduledPWM();
 
 #endif

@@ -1,4 +1,4 @@
-#include "SchedPWM.h"
+#include "SchedPWM_ATmega328P.h"
 
 
 #include <string.h>
@@ -223,15 +223,55 @@ namespace SPWM_ATmega328P{
 		
 	}
 
+
+
+
+
 	void testImplementation(){
-		ScheduledPWM_TIMER2 schedPWM;
-		schedPWM.testImplementation();
+		SchedPWM_TIMER2.begin();
+		//dim.setDimming(13, 0, 100, 100);
 		
+		//SchedPWM_TIMER2.setLedPWM(13, 2);
+		return;
+		//ScheduledPWM_TIMER2 schedPWM;
+		//schedPWM.testImplementation();
+		
+	
+/*
+		SchedPWM_TIMER2.dimming.setDimming(13, 100, 0, 50000);
+		SchedPWM_TIMER2.dimming.setDimming(5, 0, 100, 100);
+		
+		while(SchedPWM_TIMER2.dimming.dimmingStates.size() > 0){
+			auto& currentDimming = SchedPWM_TIMER2.dimming.currentDimmingState->value;
+
+			Serial.print(F("Pin: "));
+			Serial.println(currentDimming.ledId);
+			Serial.print(F("Brightness: "));
+			Serial.println(currentDimming.accumulatedBrightness);
+			Serial.print(F("ActualBrightness: "));
+			Serial.println(SchedPWM_TIMER2.computeBrightness(currentDimming.ledId));
+			Serial.print(F("Tickrate: "));
+			Serial.println(currentDimming.tickRate);			
+			
+			auto start = micros();
+			
+			SchedPWM_TIMER2.dimming.process<1>(SchedPWM_TIMER2);
+
+			auto end = micros();
+			Serial.println(end - start);
+			
+		}
+		Serial.print(F("\nFinal brightness(5): "));
+		Serial.println(SchedPWM_TIMER2.computeBrightness(5));
+		//Serial.print("\nFinal brightness(13): ");
+		Serial.println(SchedPWM_TIMER2.computeBrightness(13));
+
 		//SchedPWM_TIMER2.begin();
 		
 		//SchedPWM_TIMER2.setLedPWM(13, 2);
 		//Serial.print("HEEEEEEER: ");
 		//Serial.println(SchedPWM_TIMER2.currentStepNode->nextNode() != SchedPWM_TIMER2.steps.end());
+		*/
 	}
 
 } // SPWM_ATmega328P

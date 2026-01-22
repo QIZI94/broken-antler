@@ -26,6 +26,7 @@
 #include "adcsampler.h"
 #include "audiosampler.h"
 #include "rtc.h"
+#include "SchedPWM_ATmega328P.h"
 #include "SchedPWM.h"
 
 #include "panic.h"
@@ -83,8 +84,8 @@ void setup()
   	//initAnimations();
 	initRTC();
 
-	FixedForwardList<10, int> list;
-	using Node = FixedForwardList<10, int>::Node;
+	//FixedForwardList<10, int> list;
+	//using Node = FixedForwardList<10, int>::Node;
 	/*for(const auto& a : list.nodes){
 		Serial.print(list.indexByNode(&a));
 		Serial.print(" ");
@@ -116,7 +117,7 @@ void setup()
 	list.insertAfter(list.begin(), 4000);
 	Serial.println(">>>>>>>>>>>>>>>>>>>>>>");*/
 
-	auto printList = [&list](){
+	/*auto printList = [&list](){
 		Node* it = list.begin();
 		while (it != list.end()){
 			
@@ -150,7 +151,7 @@ void setup()
 	Node* node4 = list.insertAfter(node2, 4000);
 	printList();
 	//Node* it = list.begin();
-	
+	*/
 	
 	
 
@@ -365,7 +366,7 @@ void loop()
  //}
  //debugAudioSampler();
  //delay(1);
-  handleAnimations();
+  //handleAnimations();
   //Serial.println(testTimeTook);
   delay(100);
   //SchedPWM.pwmISR();
