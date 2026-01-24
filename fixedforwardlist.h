@@ -78,6 +78,40 @@ public:
 	};
 
 	FixedForwardList(){}
+	FixedForwardList(const FixedForwardList& other){
+		FIXED_FORWARD_LIST_TRACEBACK_ENTRY
+		*this = other;
+	}
+
+	FixedForwardList& operator=(const FixedForwardList& other){
+		FIXED_FORWARD_LIST_TRACEBACK_ENTRY
+		Node* copiedToNode = begin();
+		Node* previousCopiedToNode = beforeBegin();
+		Node* thisEnd = end();
+
+		const Node* copiedFromNode = other.cbegin();
+		const Node* otherEnd = other.cend();
+
+		while (copiedToNode != thisEnd && copiedFromNode != otherEnd){
+			copiedToNode->value = copiedFromNode->value;
+
+			previousCopiedToNode = copiedToNode;
+			copiedToNode = copiedToNode->next_ptr;
+			copiedFromNode = copiedFromNode->next_ptr;		
+		}
+
+		if(copiedToNode == thisEnd && copiedFromNode != otherEnd){
+			copiedToNode = insertAfterUnchecked(before_end, copiedFromNode->value);
+			copiedFromNode = copiedFromNode->next_ptr;	
+			while (copiedFromNode != otherEnd){
+				copiedToNode = insertAfterUnchecked(copiedToNode, copiedFromNode->value);
+				copiedFromNode = copiedFromNode->next_ptr;		
+			}
+		}
+		else if(copiedToNode != thisEnd && copiedFromNode == otherEnd){
+			while(removeAfterUnchecked(previousCopiedToNode) != end());
+		}
+	}
 	/*template<SizeType INPUT_ARRAY_SIZE>
 	FixedForwardList(const T (&elements)[INPUT_ARRAY_SIZE]){
 		Node* last = begin();
@@ -130,71 +164,39 @@ public:
 			}
 		}
 		
-		//IndexType newNodeIndex = allocateNode();
-		//Node* newNodePtr = &nodes[newNodeIndex];
-		Node* newNode = allocateNode();
-		newNode->value = value;
-		newNode->deallocated = false;
-		if(isBeforeBegin){
-			//newNodePtr->next = beginIndex;
-			newNode->next_ptr = begin_ptr;
-			begin_ptr = newNode;
-		}
-		else{
-			//IndexType nextNodeIndex = beforeNode->next;
-			Node* nextNode = beforeNode->next_ptr;
-			//beforeNode->next = newNodeIndex;
-			beforeNode->next_ptr = newNode;
-			//newNodePtr->next = nextNodeIndex;
-			newNode->next_ptr = nextNode;
-		}
-		return newNode;
-		//previousNode->nextIndex
-		
-
+		return insertAfterUnchecked(beforeNode, value);
 	}
 
 	Node* removeAfter(Node* beforeNode){
 		FIXED_FORWARD_LIST_TRACEBACK_ENTRY
 
 		//IndexType removedNodeIdx;
-		Node* removedNode;
-		bool isBeforeBegin = beforeNode == beforeBegin();
 		
 		if constexpr (!DISABLE_SAFETY_CHECKS){
-			if(!isBeforeBegin && (isForeignNode(beforeNode) || beforeNode->deallocated)){
+			if(allocatedCount == 0){
+				return beforeBegin();
+			}
+			else if(beforeNode != beforeBegin() && (isForeignNode(beforeNode) || beforeNode->deallocated)){
 				FIXED_FORWARD_LIST_ERROR_FN("ForwardList:removeAfter => InvalidInputNode", indexByNode(beforeNode), beforeNode);
 				return beforeBegin();
 			}
 		}
 		
-		Node* nextNode;
-		if(isBeforeBegin){
-			//removedNodeIdx = beginIndex;
-			removedNode = begin();
-			//beginIndex = nodes[beginIndex].next;
-			begin_ptr = nextNode = removedNode->next_ptr;
-			
-			//nextNode = begin();
-		}
-		else {
-			//removedNodeIdx = beforeNode->next;
-			removedNode = beforeNode->next_ptr;
-			//beforeNode->next = nodes[removedNodeIdx].next;
-			nextNode = beforeNode->next_ptr = removedNode->next_ptr;
-			//beforeNode->nextPtr = &nodes[beforeNode->next];
-			//nextNode = nodeByIndex(beforeNode->next);
-		}
-		
-		//freeNode(removedNodeIdx);
-		freeNode(removedNode);
-
-		return nextNode;
+		return removeAfterUnchecked(beforeNode);
 	}
 
 	void clearAfter(Node* beforeNode){
 		FIXED_FORWARD_LIST_TRACEBACK_ENTRY
-		while(removeAfter(beforeNode) != end());
+		if constexpr (!DISABLE_SAFETY_CHECKS){
+			if(allocatedCount == 0){
+				return;
+			}
+			else if(beforeNode != beforeBegin() && (isForeignNode(beforeNode) || beforeNode->deallocated)){
+				FIXED_FORWARD_LIST_ERROR_FN("ForwardList:clearAfter => InvalidInputNode", indexByNode(beforeNode), beforeNode);
+				return;
+			}
+		}
+		while(removeAfterUnchecked(beforeNode) != end());
 	}
 
 	void clear() {
@@ -321,6 +323,63 @@ public:
 		--allocatedCount;
 	}
 
+	Node* insertAfterUnchecked(Node* beforeNode, const T& value){
+		Node* newNode = allocateNode();
+		newNode->value = value;
+		newNode->deallocated = false;
+		if(beforeNode == beforeBegin()){
+			//newNodePtr->next = beginIndex;
+			newNode->next_ptr = begin_ptr;
+			begin_ptr = newNode;
+		}
+		else{
+			//IndexType nextNodeIndex = beforeNode->next;
+			Node* nextNode = beforeNode->next_ptr;
+			//beforeNode->next = newNodeIndex;
+			beforeNode->next_ptr = newNode;
+			//newNodePtr->next = nextNodeIndex;
+			newNode->next_ptr = nextNode;
+		}
+		if(newNode->next_ptr == end()){
+			before_end = newNode;
+		}
+
+		return newNode;
+	}
+
+	Node* removeAfterUnchecked(Node* beforeNode){
+		
+
+
+		Node* removedNode;
+		Node* nextNode;
+		if(beforeNode == beforeBegin()){
+			//removedNodeIdx = beginIndex;
+			removedNode = begin();
+			//beginIndex = nodes[beginIndex].next;
+			begin_ptr = nextNode = removedNode->next_ptr;
+			
+			//nextNode = begin();
+		}
+		else {
+			//removedNodeIdx = beforeNode->next;
+			removedNode = beforeNode->next_ptr;
+			//beforeNode->next = nodes[removedNodeIdx].next;
+			nextNode = beforeNode->next_ptr = removedNode->next_ptr;
+			//beforeNode->nextPtr = &nodes[beforeNode->next];
+			//nextNode = nodeByIndex(beforeNode->next);
+		}
+		
+		//freeNode(removedNodeIdx);
+		freeNode(removedNode);
+
+		if(nextNode == end()){
+			before_end = beforeNode;
+		}
+
+		return nextNode;
+	}
+
 	bool isForeignNode(const Node* node) const{
 		size_t nodeAddr = size_t(node);
 		size_t beginAddr = size_t(&nodes[0]);
@@ -333,6 +392,8 @@ public:
 	
 	//IndexType beginIndex = BUFFER_END_INDEX;
 	Node* begin_ptr = &nodes[BUFFER_END_INDEX];
+	Node* before_end = beforeBegin();
+
 	//IndexType unallocatedIndex = 0;
 	Node* unallocatedListHead = &nodes[BUFFER_BEGIN_INDEX];
 	SizeType allocatedCount = 0;
