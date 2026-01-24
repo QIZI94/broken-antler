@@ -82,6 +82,14 @@ public:
 		FIXED_FORWARD_LIST_TRACEBACK_ENTRY
 		*this = other;
 	}
+	template<SizeType INPUT_ARRAY_SIZE>
+	FixedForwardList(const T (&elements)[INPUT_ARRAY_SIZE]){
+		Node* last = beforeBegin();
+		for(const T& element : elements){
+			last = insertAfter(last, element);
+		}
+	}
+
 
 	FixedForwardList& operator=(const FixedForwardList& other){
 		FIXED_FORWARD_LIST_TRACEBACK_ENTRY
@@ -112,13 +120,7 @@ public:
 			while(removeAfterUnchecked(previousCopiedToNode) != end());
 		}
 	}
-	/*template<SizeType INPUT_ARRAY_SIZE>
-	FixedForwardList(const T (&elements)[INPUT_ARRAY_SIZE]){
-		Node* last = begin();
-		for(const T& element : elements){
-			last = insertAfter(last, element);
-		}
-	}*/
+	
 
 
 	//FixedForwardList(const T& beginValue) : nodes{Node(beginValue, BUFFER_END_INDEX, false)}, beginIndex(0), unallocatedIndex(1) {}
