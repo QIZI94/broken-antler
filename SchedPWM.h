@@ -73,6 +73,8 @@ private: // type definitions
 	_DEFINE_HAS_METHOD_IMPLEMENTED(isLedStepShared)
 	_DEFINE_HAS_METHOD_IMPLEMENTED(onDutyCycleBegin)
 	_DEFINE_HAS_METHOD_IMPLEMENTED(onDutyCycleEnd)
+private: // constants
+	static constexpr uint8_t GetOtherBufferIndex[2] {1,0};
 	
 public: // static variables
 	static constexpr size_t LED_COUNT = N;
@@ -106,7 +108,7 @@ public: // member functions
 	ScheduledPWM(
 		BrightnessType minBrightness = DEFAULT_MIN_BRIGHTNESS,
 		BrightnessType maxBrightness = DEFAULT_MAX_BRIGHTNESS
-	) : minBrightness(minBrightness), maxBrightness(maxBrightness){
+	) : minBrightness(minBrightness), maxBrightness(maxBrightness), writableBufferReady(true), activeStepsIndex(0), newIndex(0){
 
 		// compile-time check for presence of required implementation 
 		/// void assignLed(LedID, BitStorageType&)
@@ -114,7 +116,7 @@ public: // member functions
 		/// void unassignLed(LedID, BitStorageType&)
 		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, unassignLed, void, (LedID, BitStorageType&));
 		/// void processLedStep(const BitStorageType&)
-		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, processLedStep, void, (const BitStorageType&));
+		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, processLedStep, void, (BitStorageType&, const BitStorageType&));
 		/// void setupNextIsrTime(BrightnessType)
 		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, setupNextIsrTime, void, (BrightnessType));
 		/// isLedAssigned(LedID, const BitStorageType&) const
@@ -141,9 +143,9 @@ public: // member functions
 		SCHEDULED_PWM_TRACEBACK_ENTRY
 		brightness = minBrightness > brightness && brightness != 0  ? minBrightness : brightness;
 		brightness = maxBrightness < brightness ? maxBrightness : brightness;
-		StepNode* previousNode = steps.begin();
 		
 		StepNode* nodeToInsertAfter;
+		StepNode* previousNode = steps.begin();
 		if(brightness == 0){
 			unassignLed(ledId, previousNode->value.bitStorage);
 			nodeToInsertAfter = steps.end();
@@ -152,6 +154,8 @@ public: // member functions
 			assignLed(ledId, previousNode->value.bitStorage);
 			nodeToInsertAfter = nullptr;
 		}
+		
+		
 		StepNode* currentNode = previousNode->nextNode();
 		bool pastInstanceRemoved = false;
 		
@@ -167,6 +171,39 @@ public: // member functions
 			PWMStep& currentStep = currentNode->value;
 			StepNode* nextNode = currentNode->nextNode();
 
+			if(!pastInstanceRemoved && isLedAssigned(ledId, currentStep.bitStorage)){
+				if(isLedExclusive(ledId, currentStep.bitStorage)){
+					previousStep.nextIsrTime = currentStep.nextIsrTime;
+					currentNode = steps.removeAfter(previousNode);
+					pastInstanceRemoved = true;
+					continue;
+				}
+				else {
+					unassignLed(ledId, currentStep.bitStorage);
+					pastInstanceRemoved = true;
+				}
+			}
+
+			if(nodeToInsertAfter == nullptr){
+				if(previousStep.nextIsrTime > brightness){
+					nodeToInsertAfter = previousNode;
+					if(pastInstanceRemoved == true){
+						break;
+					}
+					//assignLed(ledId, currentStep.bitStorage);
+					
+				}
+				else if(previousStep.nextIsrTime == brightness){
+					assignLed(ledId, currentStep.bitStorage);
+					nodeToInsertAfter = steps.end();
+					if(pastInstanceRemoved == true){
+						break;
+					}
+				}
+				
+			}
+
+			/*
 			if(isLedExclusive(ledId, currentStep.bitStorage)){
 				//previousStep.nextIsrTime = currentStep.nextIsrTime;
 	
@@ -203,17 +240,17 @@ public: // member functions
 				unassignLed(ledId, currentStep.bitStorage);
 				nodeToInsertAfter = steps.end();
 			}
-
+			*/
 			previousNode = currentNode;
 			currentNode = nextNode;
 		}
 		if(nodeToInsertAfter != nullptr && nodeToInsertAfter != steps.end()){
-			PWMStep& referenceStep = nodeToInsertAfter->value;
 			
-			StepNode* newStepNode = steps.insertAfter(nodeToInsertAfter, referenceStep);
+			
+			StepNode* newStepNode = steps.insertAfter(nodeToInsertAfter, PWMStep::make(steps.begin()->value.bitStorage, nodeToInsertAfter->value.nextIsrTime));
 
-			referenceStep.nextIsrTime = brightness;
-			unassignLed(
+			nodeToInsertAfter->value.nextIsrTime = brightness;
+			assignLed(
 				ledId,
 				newStepNode->value.bitStorage		
 			);
@@ -242,6 +279,7 @@ public: // member functions
 		if(currentStepNode == steps.end()){
 			onDutyCycleEnd();
 			currentStepNode = steps.begin();
+			stateStorage = {};
 			return true;
 		}
 		
@@ -262,7 +300,7 @@ public: // member functions
 					break;
 				}
 				
-				if(!isLedAssigned(ledID, searchedStepNode->value.bitStorage)){
+				if(isLedAssigned(ledID, searchedStepNode->value.bitStorage)){
 					break;
 				}
 			}
@@ -292,6 +330,7 @@ public: // member functions
 	BrightnessType getMaxBrightness() const {
 		return maxBrightness;
 	}
+
 
 private: // member functions
 	/**
@@ -323,7 +362,7 @@ private: // member functions
 	 * @param stepStorage read only step storage 
 	*/
 	void processLedStep(const BitStorageType& stepStorage){
-		static_cast<Impl*>(this)->processLedStep(stepStorage);
+		static_cast<Impl*>(this)->processLedStep(stateStorage, stepStorage);
 	}
 
 	/**
@@ -381,12 +420,20 @@ private: // member functions
 	}
 
 	
-private:
+//private:
+public:
 
-	StepList steps;
-	StepNode* currentStepNode = steps.insertAfter(steps.beforeBegin(), {});
+	StepList steps = StepList({PWMStep{}});
+	StepNode* currentStepNode = steps.begin();//steps.insertAfter(steps.beforeBegin(), {});
+	BitStorageType stateStorage{};
 	BrightnessType maxBrightness;
 	BrightnessType minBrightness;
+	struct {
+		bool writableBufferReady : 1;
+		uint8_t activeStepsIndex : 1;
+		uint8_t newIndex : 1;
+		uint8_t _unused : 5;
+	};
 };
 
 #undef _DEFINE_HAS_METHOD_IMPLEMENTED

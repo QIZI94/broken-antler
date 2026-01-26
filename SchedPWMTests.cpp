@@ -78,8 +78,8 @@ protected:
 		stepStorage &= ~(0x01 << ledId);
 	}
 
-	void processLedStep(const BitStorageType& stepStorage) {
-
+	void processLedStep(BitStorageType& xoredStep, const BitStorageType& stepStorage) {
+		
 	
 	}
 
@@ -129,6 +129,9 @@ protected:
 public:
 	void test(){
 		SCHEDULED_PWM_TRACEBACK_ENTRY
+		
+		
+
 		auto comparePWMStep = [](const PWMStep& left, const PWMStep& right){
 			bool isStorageEqual = left.bitStorage == right.bitStorage;
 			bool isNextIsrTimeEqual = left.nextIsrTime == right.nextIsrTime;
@@ -150,6 +153,38 @@ public:
 		};
 
 		const StepList& stepList = getStepList();
+		/*
+		auto printForwardList = [](const StepList& toPrint, BitStorageType mask){
+			
+			for(const StepList::Node* node = toPrint.cbegin(); node != toPrint.cend(); node = node->nextNode()){
+				mask ^= node->value.bitStorage;
+				Serial.print('(');
+				Serial.print(node->value.nextIsrTime);
+				Serial.print(')');
+				Serial.print(node->value.bitStorage, BIN);
+				Serial.print('[');
+				for(uint8_t shift = 0; shift < 8; ++shift){
+					if(node->value.bitStorage & 0x01 << shift){
+						Serial.print((int)shift);
+						Serial.print(',');
+					}
+				}
+				Serial.print(']');
+				Serial.print('{');
+				Serial.print(mask,BIN);
+				Serial.println('}');
+			}
+		};
+
+		setLedPWM(2, 20);
+		setLedPWM(3, 30);
+		setLedPWM(3, 10);
+		setLedPWM(4, 15);
+		setLedPWM(5, 20);
+
+		printForwardList(stepList, referenceStepStorage);
+
+		return;*/
 		
 		//SchedPWM.pwmISR();
 		//Serial.println(SchedPWM.steps.indexByNode(SchedPWM.steps.begin()));
@@ -159,8 +194,8 @@ public:
 			setLedPWM(4, 50),
 			stepList.isEqual(
 				{
-					PWMStep::make(0b10000, 50),
-					PWMStep::make(0b00000, 0),
+					PWMStep::make(0b00000, 50),
+					PWMStep::make(0b10000, 0),
 				},
 				comparePWMStep
 			)
@@ -169,18 +204,19 @@ public:
 
 		TEST_CMP(computeBrightness(4), 50)
 		
-
+		
 		TEST_STATEMENT(
 			setLedPWM(3, 30),
 			stepList.isEqual(
 				{
-					PWMStep::make(0b11000, 30),
-					PWMStep::make(0b10000, 50),
-					PWMStep::make(0b00000, 0),
+					PWMStep::make(0b00000, 30),
+					PWMStep::make(0b01000, 50),
+					PWMStep::make(0b10000, 0),
 				},
 				comparePWMStep
 			)
 		);
+
 
 		TEST_CMP(computeBrightness(3), 30)
 
@@ -188,10 +224,10 @@ public:
 			setLedPWM(2, 10),
 			stepList.isEqual(
 				{
-					PWMStep::make(0b11100, 10),
-					PWMStep::make(0b11000, 30),
-					PWMStep::make(0b10000, 50),
-					PWMStep::make(0b00000, 0),
+					PWMStep::make(0b00000, 10),
+					PWMStep::make(0b00100, 30),
+					PWMStep::make(0b01000, 50),
+					PWMStep::make(0b10000, 0),
 				},
 				comparePWMStep
 			)
@@ -203,10 +239,10 @@ public:
 			setLedPWM(4, 70),
 			stepList.isEqual(
 				{
-					PWMStep::make(0b11100, 10),
-					PWMStep::make(0b11000, 30),
-					PWMStep::make(0b10000, 70),
-					PWMStep::make(0b00000, 0),
+					PWMStep::make(0b00000, 10),
+					PWMStep::make(0b00100, 30),
+					PWMStep::make(0b01000, 70),
+					PWMStep::make(0b10000, 0),
 				},
 				comparePWMStep
 			)
@@ -218,10 +254,10 @@ public:
 			setLedPWM(3, 20),
 			stepList.isEqual(
 				{
-					PWMStep::make(0b11100, 10),
-					PWMStep::make(0b11000, 20),
-					PWMStep::make(0b10000, 70),
-					PWMStep::make(0b00000, 0),
+					PWMStep::make(0b00000, 10),
+					PWMStep::make(0b00100, 20),
+					PWMStep::make(0b01000, 70),
+					PWMStep::make(0b10000, 0),
 				},
 				comparePWMStep
 			)
@@ -234,10 +270,10 @@ public:
 			setLedPWM(2, 40),
 			stepList.isEqual(
 				{
-					PWMStep::make(0b11100, 20),
-					PWMStep::make(0b10100, 40),
-					PWMStep::make(0b10000, 70),
-					PWMStep::make(0b00000, 0),
+					PWMStep::make(0b00000, 20),
+					PWMStep::make(0b01000, 40),
+					PWMStep::make(0b00100, 70),
+					PWMStep::make(0b10000, 0),
 				},
 				comparePWMStep
 			)
@@ -249,9 +285,9 @@ public:
 			setLedPWM(2, 20),
 			stepList.isEqual(
 				{
-					PWMStep::make(0b11100, 20),
-					PWMStep::make(0b10000, 70),
-					PWMStep::make(0b00000, 0),
+					PWMStep::make(0b00000, 20),
+					PWMStep::make(0b01100, 70),
+					PWMStep::make(0b10000, 0),
 				},
 				comparePWMStep
 			)
@@ -263,10 +299,10 @@ public:
 			setLedPWM(2, 255);setLedPWM(5, 255),
 			stepList.isEqual(
 				{
-					PWMStep::make(0b111100, 20),
-					PWMStep::make(0b110100, 70),
-					PWMStep::make(0b100100, 245),
-					PWMStep::make(0b000000, 0),
+					PWMStep::make(0b000000, 20),
+					PWMStep::make(0b001000, 70),
+					PWMStep::make(0b010000, 245),
+					PWMStep::make(0b100100, 0),
 				},
 				comparePWMStep
 			)
@@ -279,9 +315,9 @@ public:
 			setLedPWM(4, 0),
 			stepList.isEqual(
 				{
-					PWMStep::make(0b101100, 20),
-					PWMStep::make(0b100100, 245),
-					PWMStep::make(0b000000, 0),
+					PWMStep::make(0b000000, 20),
+					PWMStep::make(0b001000, 245),
+					PWMStep::make(0b100100, 0),
 				},
 				comparePWMStep
 			)
@@ -291,10 +327,10 @@ public:
 			setLedPWM(4, 70),
 			stepList.isEqual(
 				{
-					PWMStep::make(0b111100, 20),
-					PWMStep::make(0b110100, 70),
-					PWMStep::make(0b100100, 245),
-					PWMStep::make(0b000000, 0),
+					PWMStep::make(0b000000, 20),
+					PWMStep::make(0b001000, 70),
+					PWMStep::make(0b010000, 245),
+					PWMStep::make(0b100100, 0),
 				},
 				comparePWMStep
 			)
@@ -304,10 +340,10 @@ public:
 			setLedPWM(2, 0),
 			stepList.isEqual(
 				{
-					PWMStep::make(0b111000, 20),
-					PWMStep::make(0b110000, 70),
-					PWMStep::make(0b100000, 245),
-					PWMStep::make(0b000000, 0),
+					PWMStep::make(0b000000, 20),
+					PWMStep::make(0b001000, 70),
+					PWMStep::make(0b010000, 245),
+					PWMStep::make(0b100000, 0),
 				},
 				comparePWMStep
 			)

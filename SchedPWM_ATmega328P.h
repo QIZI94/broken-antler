@@ -116,7 +116,7 @@ struct StateStorage{
 	bool isAssigned(Pin pin) const;
 	bool isExclusive(Pin pin) const;
 	bool isSharedWith(Pin pin, const StateStorage& other) const;
-	void applyState(const PortMasks& ownedPins) const;
+	void applyState(StateStorage& xored, const PortMasks& ownedPins) const;
 };
 
 
@@ -187,7 +187,7 @@ private:
 		return previousStepStorage.isSharedWith(ledId, currentStepStorage);
 	}
 
-	void processLedStep(const BitStorageType& stepStorage) {
+	void processLedStep(BitStorageType& xoredStep, const BitStorageType& stepStorage) {
 		/*computeBrightness(3);
 		computeBrightness(4);
 		computeBrightness(5);
@@ -196,7 +196,7 @@ private:
 		computeBrightness(8);
 
 		computeBrightness(13);*/
-		stepStorage.applyState(ownedPins);
+		stepStorage.applyState(xoredStep, ownedPins);
 	}
 
 

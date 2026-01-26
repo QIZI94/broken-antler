@@ -100,13 +100,14 @@ namespace SPWM_ATmega328P{
 		return !isPinExclusiveInMask(pin, xoredMasks);
 	}
 
-	void SharedImpl::StateStorage::applyState(const PortMasks& ownedPins) const {
+	void SharedImpl::StateStorage::applyState(StateStorage& xored, const PortMasks& ownedPins) const {
 		static volatile uint8_t** portsPtr = helpers::GetOrderedPortsArray();
 		for(uint8_t portIdx = 0; portIdx < PortIndex::PORT_COUNT; ++portIdx){
 			volatile uint8_t* port = portsPtr[portIdx];
 			uint8_t ownedMask = ownedPins[portIdx];
 			uint8_t ownedPortMask = (*port) & (~ownedMask);
-			ownedPortMask |= digitalPortStates[portIdx] & ownedMask;
+			xored.digitalPortStates[portIdx] ^= digitalPortStates[portIdx];
+			ownedPortMask |= xored.digitalPortStates[portIdx] & ownedMask;
 			*port = ownedPortMask;
 		}
 	}
@@ -179,6 +180,7 @@ namespace SPWM_ATmega328P{
 		//pinMode(13, OUTPUT);
 		
 		const StepList& stepList = getStepList();
+		BitStorageType xoredStep = {};
 		for(const StepNode* it = stepList.cbegin(); it != stepList.cend(); it=it->nextNode()){
 			const PWMStep& step = it->value;
 			Serial.print("Step state: ");
@@ -199,7 +201,7 @@ namespace SPWM_ATmega328P{
 			}
 			Serial.print(']');
 			
-			step.bitStorage.applyState(ownedPins);
+			step.bitStorage.applyState(xoredStep, ownedPins);
 
 			Serial.print(" Step port state: ");
 			Serial.print(*portsPtr[PortIndex::PORTC_INDEX], BIN);
@@ -219,6 +221,7 @@ namespace SPWM_ATmega328P{
 		while(!pwmISR()){
 			Serial.println("INSIDE TEST");
 		}
+
 		Serial.println("END");
 		
 	}
@@ -228,13 +231,13 @@ namespace SPWM_ATmega328P{
 
 
 	void testImplementation(){
-		SchedPWM_TIMER2.begin();
+		/*SchedPWM_TIMER2.begin();
 		//dim.setDimming(13, 0, 100, 100);
 		
 		//SchedPWM_TIMER2.setLedPWM(13, 2);
-		return;
-		//ScheduledPWM_TIMER2 schedPWM;
-		//schedPWM.testImplementation();
+		return;*/
+		ScheduledPWM_TIMER2 schedPWM;
+		schedPWM.testImplementation();
 		
 	
 /*
