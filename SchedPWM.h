@@ -247,7 +247,7 @@ public: // member functions
 		if(nodeToInsertAfter != nullptr && nodeToInsertAfter != steps.end()){
 			
 			
-			StepNode* newStepNode = steps.insertAfter(nodeToInsertAfter, PWMStep::make(steps.begin()->value.bitStorage, nodeToInsertAfter->value.nextIsrTime));
+			StepNode* newStepNode = steps.insertAfter(nodeToInsertAfter, PWMStep::make({}, nodeToInsertAfter->value.nextIsrTime));
 
 			nodeToInsertAfter->value.nextIsrTime = brightness;
 			assignLed(
