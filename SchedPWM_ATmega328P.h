@@ -139,21 +139,21 @@ public:
 	void begin(){
 		SharedImpl::initTIMER2();
 		//setLedPWM(13, 5);
-		/*dimming.setDimming(13,100, 10, 10000>>3);
-		dimming.setDimming(2, 100, 10, 10000>>3);
-		dimming.setDimming(3, 100, 10, 10000>>3);
-		dimming.setDimming(4, 100, 10, 10000>>3);
-		dimming.setDimming(5, 200, 101, 10000>>3);
-		dimming.setDimming(6, 200, 101, 10000>>3);
-		dimming.setDimming(7, 200, 101, 10000>>3);*/
+		dimming.setDimming(13,100, 10, 5000>>4);
+		dimming.setDimming(2, 100, 10, 5000>>4);
+		dimming.setDimming(3, 100, 10, 5000>>4);
+		dimming.setDimming(4, 100, 10, 5000>>4);
+		dimming.setDimming(5, 200, 101, 5000>>4);
+		dimming.setDimming(6, 200, 101, 5000>>4);
+		dimming.setDimming(7, 200, 101, 5000>>4);
 	
-		setLedPWM(13, 1);
+	/*	setLedPWM(13, 1);
 		setLedPWM(3, 4);
 		setLedPWM(4, 8);
 		setLedPWM(5, 12);
 		setLedPWM(6, 16);
 		setLedPWM(7, 20);
-		setLedPWM(8, 24);
+		setLedPWM(8, 24);*/
     
 
 		/*dimming.setDimming(8, 90, 0, 5000>>3);
@@ -205,6 +205,7 @@ private:
 	}
 
 	void onDutyCycleBegin() {
+		//dimming.process(*this);
 		//delayMicroseconds(25);
 		
 		/*setLedPWM(2, cycleBrightness);

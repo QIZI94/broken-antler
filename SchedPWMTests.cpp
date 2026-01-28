@@ -152,7 +152,7 @@ public:
 			return isStorageEqual && isNextIsrTimeEqual;
 		};
 
-		const StepList& stepList = getStepList();
+		const StepList& stepList = getStepList(BufferIndex::Writable);
 		/*
 		auto printForwardList = [](const StepList& toPrint, BitStorageType mask){
 			
@@ -202,7 +202,7 @@ public:
 		);
 		
 
-		TEST_CMP(computeBrightness(4), 50)
+		TEST_CMP(computeBrightness(4, BufferIndex::Writable), 50)
 		
 		
 		TEST_STATEMENT(
@@ -218,7 +218,7 @@ public:
 		);
 
 
-		TEST_CMP(computeBrightness(3), 30)
+		TEST_CMP(computeBrightness(3, BufferIndex::Writable), 30)
 
 		TEST_STATEMENT(
 			setLedPWM(2, 10),
@@ -233,7 +233,7 @@ public:
 			)
 		);
 
-		TEST_CMP(computeBrightness(2), 10)
+		TEST_CMP(computeBrightness(2, BufferIndex::Writable), 10)
 		
 		TEST_STATEMENT(
 			setLedPWM(4, 70),
@@ -248,7 +248,7 @@ public:
 			)
 		);
 
-		TEST_CMP(computeBrightness(4), 70)
+		TEST_CMP(computeBrightness(4, BufferIndex::Writable), 70)
 
 		TEST_STATEMENT(
 			setLedPWM(3, 20),
@@ -263,7 +263,7 @@ public:
 			)
 		);
 
-		TEST_CMP(computeBrightness(3), 20)
+		TEST_CMP(computeBrightness(3, BufferIndex::Writable), 20)
 
 		//SchedPWM.pwmISR();
 		TEST_STATEMENT(
@@ -279,7 +279,7 @@ public:
 			)
 		);
 
-		TEST_CMP(computeBrightness(2), 40);
+		TEST_CMP(computeBrightness(2, BufferIndex::Writable), 40);
 
 		TEST_STATEMENT(
 			setLedPWM(2, 20),
@@ -293,7 +293,7 @@ public:
 			)
 		);
 
-		TEST_CMP(computeBrightness(2), 20);
+		TEST_CMP(computeBrightness(2, BufferIndex::Writable), 20);
 
 		TEST_STATEMENT(
 			setLedPWM(2, 255);setLedPWM(5, 255),
@@ -308,8 +308,8 @@ public:
 			)
 		);
 
-		TEST_CMP(computeBrightness(2), getMaxBrightness());
-		TEST_CMP(computeBrightness(5), getMaxBrightness());
+		TEST_CMP(computeBrightness(2, BufferIndex::Writable), getMaxBrightness());
+		TEST_CMP(computeBrightness(5, BufferIndex::Writable), getMaxBrightness());
 
 		TEST_STATEMENT(
 			setLedPWM(4, 0),
@@ -355,7 +355,7 @@ public:
 		constexpr StepList::SizeType EXPECTED_SIZE = 4;
 		
 		
-		TEST_CMP(getStepList().size(), EXPECTED_SIZE);
+		TEST_CMP(getStepList(BufferIndex::Writable).size(), EXPECTED_SIZE);
 
 
 		StepList::SizeType stepCount = 1;
@@ -363,7 +363,7 @@ public:
 			++stepCount;
 		}
 		constexpr StepList::SizeType FIRST_PWM_ISR_ITERATED_STEP_COUNT = EXPECTED_SIZE;
-		TEST_CMP(getStepList().size(), FIRST_PWM_ISR_ITERATED_STEP_COUNT);
+		TEST_CMP(getStepList(BufferIndex::Active).size(), FIRST_PWM_ISR_ITERATED_STEP_COUNT);
 		
 		stepCount = 1;
 		while(!pwmISR()){
@@ -371,14 +371,14 @@ public:
 		}
 
 		constexpr StepList::SizeType SECOND_PWM_ISR_ITERATED_STEP_COUNT = EXPECTED_SIZE;
-		TEST_CMP(getStepList().size(), SECOND_PWM_ISR_ITERATED_STEP_COUNT);
+		TEST_CMP(getStepList(BufferIndex::Active).size(), SECOND_PWM_ISR_ITERATED_STEP_COUNT);
 		clear();
 		stepCount = 1;
 		while(!pwmISR()){
 			++stepCount;
 		}
 		constexpr StepList::SizeType CLEARED_PWM_ISR_ITERATED_STEP_COUNT = 1;
-		TEST_CMP(getStepList().size(), CLEARED_PWM_ISR_ITERATED_STEP_COUNT);
+		TEST_CMP(getStepList(BufferIndex::Active).size(), CLEARED_PWM_ISR_ITERATED_STEP_COUNT);
 
 		Serial.println(F("DONE"));
 	}

@@ -73,13 +73,13 @@ private: // type definitions
 	_DEFINE_HAS_METHOD_IMPLEMENTED(isLedStepShared)
 	_DEFINE_HAS_METHOD_IMPLEMENTED(onDutyCycleBegin)
 	_DEFINE_HAS_METHOD_IMPLEMENTED(onDutyCycleEnd)
-private: // constants
-	static constexpr uint8_t GetOtherBufferIndex[2] {1,0};
+
 	
-public: // static variables
+public: // static constants
 	static constexpr size_t LED_COUNT = N;
 	static constexpr uint64_t DEFAULT_MIN_BRIGHTNESS = 0;
 	static constexpr uint64_t DEFAULT_MAX_BRIGHTNESS = UINT64_MAX - 10;
+	static constexpr uint8_t GetOtherBufferIndex[2] {1,0};
 public: // type definitions
 	using BrightnessType = BRIGHTNESS_TYPE;
 	using LedID = LED_ID_TYPE;
@@ -99,16 +99,19 @@ public: // type definitions
 	using StepList = FixedForwardList<LED_COUNT + 1, PWMStep, true>;
 	using StepNode = typename StepList::Node;
 
+	enum class BufferIndex : uint8_t{
+		Active,
+		Writable
+	};
+
 	//using ValueType = uint8_t;
-
-
 
 public: // member functions
 
 	ScheduledPWM(
 		BrightnessType minBrightness = DEFAULT_MIN_BRIGHTNESS,
 		BrightnessType maxBrightness = DEFAULT_MAX_BRIGHTNESS
-	) : minBrightness(minBrightness), maxBrightness(maxBrightness), writableBufferReady(true), activeStepsIndex(0), newIndex(0){
+	) : minBrightness(minBrightness), maxBrightness(maxBrightness){
 
 		// compile-time check for presence of required implementation 
 		/// void assignLed(LedID, BitStorageType&)
@@ -140,6 +143,17 @@ public: // member functions
 	 * @param brightness brightness based on which duty cycle time is setup
 	*/
 	void setLedPWM(LedID ledId, BrightnessType brightness){
+		newIndex = activeStepsIndex;
+		uint8_t writableBufferIndex = GetOtherBufferIndex[activeStepsIndex];
+		StepList& steps = stepsBuffer[writableBufferIndex];
+
+		
+		 
+		if(!writableBufferReady){
+			steps = stepsBuffer[activeStepsIndex];
+			writableBufferReady = true;
+		}
+
 		SCHEDULED_PWM_TRACEBACK_ENTRY
 		brightness = minBrightness > brightness && brightness != 0  ? minBrightness : brightness;
 		brightness = maxBrightness < brightness ? maxBrightness : brightness;
@@ -255,6 +269,7 @@ public: // member functions
 				newStepNode->value.bitStorage		
 			);
 		}
+		newIndex = writableBufferIndex;
 	}
 	
 	/**
@@ -265,6 +280,7 @@ public: // member functions
 	bool pwmISR(){
 		
 		//PANIC("ScheduledPWM::pwmISR");
+		StepList& steps = stepsBuffer[activeStepsIndex];
 		if(currentStepNode == steps.begin()){
 			onDutyCycleBegin();
 		}
@@ -278,7 +294,11 @@ public: // member functions
 		currentStepNode = currentStepNode->nextNode();
 		if(currentStepNode == steps.end()){
 			onDutyCycleEnd();
-			currentStepNode = steps.begin();
+			if(activeStepsIndex != newIndex){
+				activeStepsIndex = newIndex;
+				writableBufferReady = false;
+			}
+			currentStepNode = stepsBuffer[activeStepsIndex].begin();
 			stateStorage = {};
 			return true;
 		}
@@ -286,9 +306,11 @@ public: // member functions
 		return false;
 	}
 
-	BrightnessType computeBrightness(LedID ledID) const {
+	BrightnessType computeBrightness(LedID ledID, BufferIndex bufferIndex) const {
+		const StepList& steps = bufferIndex == BufferIndex::Active ? stepsBuffer[activeStepsIndex] : stepsBuffer[GetOtherBufferIndex[activeStepsIndex]];
 		const StepNode* searchedStepNode = steps.cbegin();
 		const StepNode* cend = steps.cend();
+
 		BrightnessType foundLedIDsBrightness = 0;
 		if(isLedAssigned(ledID, searchedStepNode->value.bitStorage)){
 			while(1){
@@ -311,16 +333,21 @@ public: // member functions
 	}
 
 
-	inline const StepList& getStepList() const {
-		return steps;
+	inline const StepList& getStepList(BufferIndex bufferIndex) const {
+		return bufferIndex == BufferIndex::Active ? stepsBuffer[activeStepsIndex] : stepsBuffer[GetOtherBufferIndex[activeStepsIndex]];
 	}
 
 
 
 	void clear() {
+		newIndex = activeStepsIndex;
+		uint8_t writableBufferIndex = GetOtherBufferIndex[activeStepsIndex];
+		const StepList& steps = stepsBuffer[writableBufferIndex];
 		while(steps.size() > 1){
+			
 			currentStepNode = steps.removeAfter(steps.beforeBegin());			
 		}
+		newIndex = writableBufferIndex;
 	}
 
 	BrightnessType getMinBrightness() const {
@@ -423,17 +450,23 @@ private: // member functions
 //private:
 public:
 
-	StepList steps = StepList({PWMStep{}});
-	StepNode* currentStepNode = steps.begin();//steps.insertAfter(steps.beforeBegin(), {});
+	StepList stepsBuffer[2] = {
+		StepList({PWMStep{}}),
+		StepList({PWMStep{}})
+	};
+	StepNode* currentStepNode = stepsBuffer[0].begin();//steps.insertAfter(steps.beforeBegin(), {});
 	BitStorageType stateStorage{};
 	BrightnessType maxBrightness;
 	BrightnessType minBrightness;
-	struct {
+	volatile bool writableBufferReady = false;
+	volatile uint8_t activeStepsIndex = 0;
+	volatile uint8_t newIndex = 0;
+	/*struct {
 		bool writableBufferReady : 1;
 		uint8_t activeStepsIndex : 1;
 		uint8_t newIndex : 1;
 		uint8_t _unused : 5;
-	};
+	};*/
 };
 
 #undef _DEFINE_HAS_METHOD_IMPLEMENTED
@@ -491,7 +524,7 @@ class DimmingPWM {
 				
 				//for(uint16_t compensate = 0; compensate < compensateTicks; ++compensate){
 				int32_t compensatedTicks = dimmingState.tickRate * compensateTicks;
-				dimmingState.accumulatedBrightness += dimmingState.tickRate;// * compensateTicks;
+				dimmingState.accumulatedBrightness += dimmingState.tickRate * compensateTicks;
 				
 				//}
 				

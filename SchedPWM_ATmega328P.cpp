@@ -155,35 +155,37 @@ namespace SPWM_ATmega328P{
 	void ScheduledPWM_TIMER2::testImplementation(){
 		//using StepNode = ScheduledPWM_TIMER2::StepNode;
 		//using PWMStep = ScheduledPWM_TIMER2::PWMStep;
-		static volatile uint8_t** portsPtr = SharedImpl::helpers::GetOrderedPortsArray();
-		auto start = micros();
+		Serial.print('~');
+		volatile uint8_t** portsPtr = SharedImpl::helpers::GetOrderedPortsArray();
+		
 		setLedPWM(2, 10);
 		setLedPWM(3, 20);
 		setLedPWM(2, 30);
 		setLedPWM(8, 50);
 		setLedPWM(A1, 50);
-		
+		auto start = micros();
 		setLedPWM(13, 9);
+
 		auto end = micros();
 		
-		computeBrightness(2);
-		computeBrightness(3);
-		computeBrightness(2);
-		computeBrightness(8);
-		computeBrightness(A1);
+		computeBrightness(2, BufferIndex::Writable);
+		computeBrightness(3, BufferIndex::Writable);
+		computeBrightness(2, BufferIndex::Writable);
+		computeBrightness(8, BufferIndex::Writable);
+		computeBrightness(A1,BufferIndex::Writable);
 		
-		computeBrightness(13);
+		computeBrightness(13, BufferIndex::Writable);
 		
 		Serial.print("Time: ");
 		Serial.println(end-start);
 
 		//pinMode(13, OUTPUT);
 		
-		const StepList& stepList = getStepList();
+		const StepList& stepList = getStepList(BufferIndex::Writable);
 		BitStorageType xoredStep = {};
 		for(const StepNode* it = stepList.cbegin(); it != stepList.cend(); it=it->nextNode()){
 			const PWMStep& step = it->value;
-			Serial.print("Step state: ");
+			Serial.print(F("Step state: "));
 			Serial.print(step.bitStorage.digitalPortStates[PortIndex::PORTC_INDEX], BIN);
 			Serial.print(' ');
 			Serial.print(step.bitStorage.digitalPortStates[PortIndex::PORTB_INDEX], BIN);
@@ -203,14 +205,14 @@ namespace SPWM_ATmega328P{
 			
 			step.bitStorage.applyState(xoredStep, ownedPins);
 
-			Serial.print(" Step port state: ");
+			Serial.print(F(" Step port state: "));
 			Serial.print(*portsPtr[PortIndex::PORTC_INDEX], BIN);
 			Serial.print(' ');
 			Serial.print(*portsPtr[PortIndex::PORTB_INDEX], BIN);
 			Serial.print(' ');
 			Serial.print(*portsPtr[PortIndex::PORTD_INDEX], BIN);
 
-			Serial.print(" owned pins: ");
+			Serial.print(F(" owned pins: "));
 			Serial.print(ownedPins[PortIndex::PORTC_INDEX], BIN);
 			Serial.print(' ');
 			Serial.print(ownedPins[PortIndex::PORTB_INDEX], BIN);
@@ -219,10 +221,13 @@ namespace SPWM_ATmega328P{
 			delay(1500);
 		}
 		while(!pwmISR()){
-			Serial.println("INSIDE TEST");
+			Serial.println(F("INSIDE TEST"));
+		}
+		while(!pwmISR()){
+			Serial.println(F("INSIDE TEST"));
 		}
 
-		Serial.println("END");
+		Serial.println(F("END"));
 		
 	}
 
@@ -231,13 +236,13 @@ namespace SPWM_ATmega328P{
 
 
 	void testImplementation(){
-		/*SchedPWM_TIMER2.begin();
+		SchedPWM_TIMER2.begin();
 		//dim.setDimming(13, 0, 100, 100);
 		
 		//SchedPWM_TIMER2.setLedPWM(13, 2);
-		return;*/
-		ScheduledPWM_TIMER2 schedPWM;
-		schedPWM.testImplementation();
+		return;
+		//ScheduledPWM_TIMER2 schedPWM;
+		//schedPWM.testImplementation();
 		
 	
 /*
