@@ -486,7 +486,7 @@ class DimmingPWM {
 		if(currentDimmingState == dimmingStates.end()){
 			return true;
 		}
-		
+		bool shouldBreak = false;
 		for(size_t processedCounter = 0; processedCounter < N_STATES_TO_PROCESS; ++processedCounter){
 			
 			noInterrupts();
@@ -497,9 +497,10 @@ class DimmingPWM {
 			LedID ledId = dimmingState.ledId;
 			//LedID ledId = dimmingState.ledId;
 			//bool brightnessChanged = false;
-			bool shouldBreak = false;
 			
-			if(dimmingState.tickRate == 0){
+			bool instantChange = dimmingState.tickRate == 0;
+			
+			if(instantChange){
 				currentDimmingState = dimmingStates.removeAfter(previousDimmingState);
 			}
 			else if(dimmingState.tickRate > 0 && currentBrightness >= dimmingState.targetBrightness){
@@ -527,7 +528,7 @@ class DimmingPWM {
 				//break;
 			}
 			interrupts();
-			if(currentBrightness != targetBrightness){
+			if(instantChange || currentBrightness != targetBrightness){
 				schedPWM.setLedPWM(ledId, currentBrightness);
 			}
 			if(shouldBreak){
