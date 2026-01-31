@@ -81,24 +81,6 @@ namespace SPWM_ATmega328P{
 		return isPinExclusiveInMask(pin, digitalPortStates);
 	}
 
-	bool SharedImpl::StateStorage::isSharedWith(Pin pin, const StateStorage &other) const {
-		//uint8_t xoredStep = previousStepStorage ^ currentStepStorage;
-
-		PortMasks xoredMasks;
-		uint8_t equalCount = 0;
-		for(uint8_t portIdx = 0; portIdx < PortIndex::PORT_COUNT; ++portIdx){
-			uint8_t xoredMask = digitalPortStates[portIdx] ^ other.digitalPortStates[portIdx];
-			if(xoredMask == 0){
-				++equalCount;
-			}
-			xoredMasks[portIdx] = xoredMask;
-		}
-
-		if(equalCount == PortIndex::PORT_COUNT){
-			return false;
-		}
-		return !isPinExclusiveInMask(pin, xoredMasks);
-	}
 
 	void SharedImpl::StateStorage::applyState(StateStorage& xored, const PortMasks& ownedPins) const {
 		static volatile uint8_t** portsPtr = helpers::GetOrderedPortsArray();
@@ -152,7 +134,7 @@ namespace SPWM_ATmega328P{
 	ISR(TIMER2_COMPB_vect) {
 		SchedPWM_TIMER2.pwmISR();
 	}
-	void ScheduledPWM_TIMER2::testImplementation(){
+	/*void ScheduledPWM_TIMER2::testImplementation(){
 		//using StepNode = ScheduledPWM_TIMER2::StepNode;
 		//using PWMStep = ScheduledPWM_TIMER2::PWMStep;
 		Serial.print('~');
@@ -229,7 +211,7 @@ namespace SPWM_ATmega328P{
 
 		Serial.println(F("END"));
 		
-	}
+	}*/
 
 
 

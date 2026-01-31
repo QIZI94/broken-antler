@@ -11,15 +11,15 @@
 
 #define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
 
-#define SCHEDULED_PWM_TRACEBACK_ENTRY \
-PanicTrace __traceback_entry(__FILENAME__, __func__, __LINE__);
+#define SCHEDULED_PWM_TRACEBACK_ENTRY /*\
+PanicTrace __traceback_entry(__FILENAME__, __func__, __LINE__);*/
 
 
 namespace detail{
 	extern void panicOnStepError(const char* msg, size_t index, void* addr);
 }
-#define FIXED_FORWARD_LIST_ERROR_FN(msg, index, addr)\
-	detail::panicOnStepError(((const char*) F(msg)), (index), (addr))
+#define FIXED_FORWARD_LIST_ERROR_FN(msg, index, addr)/*\
+	detail::panicOnStepError(((const char*) F(msg)), (index), (addr))*/
 
 
 
@@ -129,23 +129,33 @@ static void setNextIsrTimeForTIMER2(uint8_t brightness);
 };
 
 
-
-class ScheduledPWM_TIMER2 : public ScheduledPWM<12, ScheduledPWM_TIMER2, SharedImpl::Pin,  SharedImpl::StateStorage, uint8_t>{
+template<size_t N>
+class ScheduledPWM_TIMER2 : public ScheduledPWM<N, ScheduledPWM_TIMER2<N>, SharedImpl::Pin,  SharedImpl::StateStorage, uint8_t>{
 public:
-
+	using ScheduledPWM = ScheduledPWM<N, ScheduledPWM_TIMER2<N>, SharedImpl::Pin,  SharedImpl::StateStorage, uint8_t>;
+	using LedID = SharedImpl::Pin;
+	using BitStorageType = SharedImpl::StateStorage;
+	using BrightnessType = uint8_t;
 	ScheduledPWM_TIMER2() : ScheduledPWM(1) {
 		
 	}
 	void begin(){
 		SharedImpl::initTIMER2();
 		//setLedPWM(13, 5);
-		dimming.setDimming(13,100, 10, 5000>>4);
-		dimming.setDimming(2, 100, 10, 5000>>4);
-		dimming.setDimming(3, 100, 10, 5000>>4);
-		dimming.setDimming(4, 100, 10, 5000>>4);
-		dimming.setDimming(5, 200, 101, 5000>>4);
-		dimming.setDimming(6, 200, 101, 5000>>4);
-		dimming.setDimming(7, 200, 101, 5000>>4);
+	/*	dimming.setDimming(13,100, 5, 10000>>1);
+		dimming.setDimming(12,100, 1, 5000>>1);
+		dimming.setDimming(2, 100, 50, 12000>>1);
+		dimming.setDimming(3, 100, 50, 9000>>1);
+		dimming.setDimming(4, 100, 50, 5000>>1);
+		dimming.setDimming(5, 200, 101, 7000>>1);
+		dimming.setDimming(6, 200, 101, 6000>>1);
+		dimming.setDimming(8, 200, 101, 4000>>1);
+		dimming.setDimming(9, 200, 101, 2000>>1);
+		dimming.setDimming(10, 200, 101, 1000>>1);
+		dimming.setDimming(11, 200, 101, 8000>>1);
+		dimming.setDimming(A1, 100, 5, 0>>1);*/
+
+		
 	
 	/*	setLedPWM(13, 1);
 		setLedPWM(3, 4);
@@ -164,7 +174,7 @@ public:
 
 	}
 
-	void testImplementation();
+	//void testImplementation();
 DimmingPWM<ScheduledPWM_TIMER2> dimming;
 
 private:
@@ -188,14 +198,6 @@ private:
 	}
 
 	void processLedStep(BitStorageType& xoredStep, const BitStorageType& stepStorage) {
-		/*computeBrightness(3);
-		computeBrightness(4);
-		computeBrightness(5);
-		computeBrightness(6);*/
-		/*computeBrightness(7);
-		computeBrightness(8);
-
-		computeBrightness(13);*/
 		stepStorage.applyState(xoredStep, ownedPins);
 	}
 
@@ -205,52 +207,19 @@ private:
 	}
 
 	void onDutyCycleBegin() {
-		//dimming.process(*this);
-		//delayMicroseconds(25);
-		
-		/*setLedPWM(2, cycleBrightness);
-		setLedPWM(3, cycleBrightness);
-		
-		setLedPWM(7, cycleBrightness);
-		setLedPWM(8, cycleBrightness);
-
-		setLedPWM(12, cycleBrightness);
-		setLedPWM(13, cycleBrightness);
-		setLedPWM(2, cycleBrightness);
-		setLedPWM(3, cycleBrightness);
-		
-		setLedPWM(7, cycleBrightness);
-		setLedPWM(8, cycleBrightness);
-
-		setLedPWM(12, cycleBrightness);
-		setLedPWM(13, cycleBrightness);
-		//Serial.println("HERE");
-		if(cycleBrightness == 255){
-			direction = -1;
-		}
-		else if(cycleBrightness == 1){
-			direction = 1;
-		}
-		cycleBrightness += direction;*/
-		//dimming.process(*this);
-		/*if((dimming.currentDimmingState->value.accumulatedBrightness >> 10) > 90){
-			dimming.setDimming(13, 89,0, 60000 >> 8);
-		}*/
 	}
 
 	void onDutyCycleEnd(){
 
 	}
 	
-	uint8_t cycleBrightness = 1;
-	int8_t direction = 1;
 	SharedImpl::PortMasks ownedPins = {};
 	
 	
 	friend ScheduledPWM;
 };
 
-inline ScheduledPWM_TIMER2 SchedPWM_TIMER2;
+inline ScheduledPWM_TIMER2<12> SchedPWM_TIMER2;
 extern void testImplementation();
 }
 
