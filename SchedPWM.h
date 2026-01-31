@@ -59,7 +59,8 @@ static_assert(\
 	"Derived class doesn't implement method with signature '" #ReturnType " " #Method #Args\
 );
 
-
+static constexpr uint8_t DEFAULT_MAX_BRIGHTNESS = UINT64_MAX - 10;
+static constexpr uint8_t MAX_VALUE = (uint8_t(UINT64_MAX) >> 6) + 1;
 
 template<size_t N, class Impl, typename LED_ID_TYPE,  typename STEP_STORAGE_TYPE, typename BRIGHTNESS_TYPE = uint8_t>
 class ScheduledPWM{
@@ -77,8 +78,10 @@ private: // type definitions
 	
 public: // static constants
 	static constexpr size_t LED_COUNT = N;
-	static constexpr uint64_t DEFAULT_MIN_BRIGHTNESS = 0;
-	static constexpr uint64_t DEFAULT_MAX_BRIGHTNESS = UINT64_MAX - 10;
+	static constexpr BRIGHTNESS_TYPE MAX_VALUE_OF_BRIGHTNESS = UINT64_MAX;
+	static constexpr BRIGHTNESS_TYPE DEFAULT_MIN_BRIGHTNESS = 0;
+	static constexpr BRIGHTNESS_TYPE DEFAULT_MAX_BRIGHTNESS = MAX_VALUE_OF_BRIGHTNESS - 10;
+	static constexpr BRIGHTNESS_TYPE DEFAULT_BRIGHTNESS_DELTA = (MAX_VALUE_OF_BRIGHTNESS >> 6) + 1;
 	static constexpr uint8_t GetOtherBufferIndex[2] {1,0};
 public: // type definitions
 	using BrightnessType = BRIGHTNESS_TYPE;
@@ -110,8 +113,9 @@ public: // member functions
 
 	ScheduledPWM(
 		BrightnessType minBrightness = DEFAULT_MIN_BRIGHTNESS,
-		BrightnessType maxBrightness = DEFAULT_MAX_BRIGHTNESS
-	) : minBrightness(minBrightness), maxBrightness(maxBrightness){
+		BrightnessType maxBrightness = DEFAULT_MAX_BRIGHTNESS,
+		BrightnessType brightnessDelta = DEFAULT_BRIGHTNESS_DELTA
+	) : minBrightness(minBrightness), maxBrightness(maxBrightness), brightnessDelta(brightnessDelta){
 
 		// compile-time check for presence of required implementation 
 		/// void assignLed(LedID, BitStorageType&)
@@ -148,6 +152,7 @@ public: // member functions
 		StepList& steps = stepsBuffer[writableBufferIndex];
 
 		
+
 		 
 		if(!writableBufferReady){
 			steps = stepsBuffer[activeStepsIndex];
@@ -158,6 +163,10 @@ public: // member functions
 		brightness = minBrightness > brightness && brightness != 0  ? minBrightness : brightness;
 		brightness = maxBrightness < brightness ? maxBrightness : brightness;
 		
+		
+
+
+
 		StepNode* nodeToInsertAfter;
 		StepNode* previousNode = steps.begin();
 		if(brightness == 0){
@@ -173,6 +182,12 @@ public: // member functions
 		StepNode* currentNode = previousNode->nextNode();
 		bool pastInstanceRemoved = false;
 		
+		BrightnessType upperBrightnessDelta =
+			brightness > UINT8_MAX - brightnessDelta ? UINT8_MAX : brightness + brightnessDelta;
+
+		BrightnessType lowerBrightnessDelta = 
+			brightness < brightnessDelta ? 0 : brightness - brightnessDelta;
+
 		while(1){
 
 			if(currentNode == steps.end()){
@@ -199,62 +214,30 @@ public: // member functions
 			}
 
 			if(nodeToInsertAfter == nullptr){
-				if(previousStep.nextIsrTime > brightness){
-					nodeToInsertAfter = previousNode;
-					if(pastInstanceRemoved == true){
-						break;
-					}
-					//assignLed(ledId, currentStep.bitStorage);
-					
-				}
-				else if(previousStep.nextIsrTime == brightness){
+
+				if(previousStep.nextIsrTime > lowerBrightnessDelta && previousStep.nextIsrTime < upperBrightnessDelta){
 					assignLed(ledId, currentStep.bitStorage);
 					nodeToInsertAfter = steps.end();
 					if(pastInstanceRemoved == true){
 						break;
 					}
 				}
-				
-			}
-
-			/*
-			if(isLedExclusive(ledId, currentStep.bitStorage)){
-				//previousStep.nextIsrTime = currentStep.nextIsrTime;
-	
-				currentNode = steps.removeAfter(previousNode);
-				continue;
-			}
-			if(
-				!pastInstanceRemoved &&
-				!isLedAssigned(ledId, currentStep.bitStorage) && 
-				nextNode != steps.end()
-			){
-				if(!isLedStepShared(ledId, previousStep.bitStorage, currentStep.bitStorage)){
-					previousStep.nextIsrTime = currentStep.nextIsrTime;
-					currentNode = steps.removeAfter(previousNode);
-					pastInstanceRemoved = true;
-					continue;
-				}
-			}
-			
-
-			if(previousStep.nextIsrTime < brightness){
-				
-				assignLed(ledId, currentStep.bitStorage);
-
-			}
-			else if(previousStep.nextIsrTime > brightness){
-				if(nodeToInsertAfter == nullptr){
-					
+				else if(previousStep.nextIsrTime > brightness){
 					nodeToInsertAfter = previousNode;
+					if(pastInstanceRemoved == true){
+						break;
+					}
 				}
-				unassignLed(ledId, currentStep.bitStorage);
+				/*else if(previousStep.nextIsrTime == brightness){
+					assignLed(ledId, currentStep.bitStorage);
+					nodeToInsertAfter = steps.end();
+					if(pastInstanceRemoved == true){
+						break;
+					}
+				}*/
+				
 			}
-			else{
-				unassignLed(ledId, currentStep.bitStorage);
-				nodeToInsertAfter = steps.end();
-			}
-			*/
+
 			previousNode = currentNode;
 			currentNode = nextNode;
 		}
@@ -458,6 +441,7 @@ public:
 	BitStorageType stateStorage{};
 	BrightnessType maxBrightness;
 	BrightnessType minBrightness;
+	BrightnessType brightnessDelta;
 	volatile bool writableBufferReady = false;
 	volatile uint8_t activeStepsIndex = 0;
 	volatile uint8_t newIndex = 0;
@@ -481,9 +465,9 @@ class DimmingPWM {
 
 
 	struct DimmingState{
-		int32_t accumulatedBrightness;
-		int32_t tickRate;
-		BrightnessType targetBrightness;
+		volatile int32_t accumulatedBrightness;
+		volatile int32_t tickRate;
+		volatile BrightnessType targetBrightness;
 		LedID ledId;
 
 	};
@@ -498,56 +482,63 @@ class DimmingPWM {
 	template<size_t N_STATES_TO_PROCESS = DimmingStateList::BUFFER_SIZE>
 	bool process(ScheduledPWMImpl& schedPWM){
 		SCHEDULED_PWM_TRACEBACK_ENTRY
+		//Serial.println("-----------------------");
 		if(currentDimmingState == dimmingStates.end()){
 			return true;
 		}
+		
 		for(size_t processedCounter = 0; processedCounter < N_STATES_TO_PROCESS; ++processedCounter){
-
-			DimmingState& dimmingState = currentDimmingState->value;
+			
+			noInterrupts();
+			
+			volatile DimmingState& dimmingState = currentDimmingState->value;
 			BrightnessType currentBrightness = dimmingState.accumulatedBrightness >> SHIFT_SCALE;
+			BrightnessType targetBrightness = dimmingState.targetBrightness;
 			LedID ledId = dimmingState.ledId;
 			//LedID ledId = dimmingState.ledId;
 			//bool brightnessChanged = false;
-
+			bool shouldBreak = false;
 			
-
-			if(dimmingState.tickRate > 0 && currentBrightness >= dimmingState.targetBrightness){
-				currentBrightness = dimmingState.targetBrightness;
+			if(dimmingState.tickRate == 0){
+				currentDimmingState = dimmingStates.removeAfter(previousDimmingState);
+			}
+			else if(dimmingState.tickRate > 0 && currentBrightness >= dimmingState.targetBrightness){
+				currentBrightness = targetBrightness;
 				currentDimmingState = dimmingStates.removeAfter(previousDimmingState);
 				
 			}
 			else if(dimmingState.tickRate < 0 && currentBrightness <= dimmingState.targetBrightness){
 				currentBrightness = dimmingState.targetBrightness;
 				currentDimmingState = dimmingStates.removeAfter(previousDimmingState);
+
 			}
 			else {
-				
-				//for(uint16_t compensate = 0; compensate < compensateTicks; ++compensate){
-				int32_t compensatedTicks = dimmingState.tickRate * compensateTicks;
-				dimmingState.accumulatedBrightness += dimmingState.tickRate * compensateTicks;
-				
-				//}
-				
-				//if((dimmingState.accumulatedBrightness >> SHIFT_SCALE) != currentBrightness){
-					
-				//}
+				dimmingState.accumulatedBrightness += dimmingState.tickRate * dimmingStates.size();
 				previousDimmingState = currentDimmingState;
 				currentDimmingState = currentDimmingState->nextNode();
 			}
-			schedPWM.setLedPWM(dimmingState.ledId, currentBrightness);
+			
 			
 
 			if(currentDimmingState == dimmingStates.end()){
 				currentDimmingState = dimmingStates.begin();
 				previousDimmingState = dimmingStates.beforeBegin();
-				compensateTicks = 1;
-				return true;
+				shouldBreak = true;
+				//break;
 			}
-			else {
+			interrupts();
+			if(currentBrightness != targetBrightness){
+				schedPWM.setLedPWM(ledId, currentBrightness);
+			}
+			if(shouldBreak){
+				break;
+			}
+			/*else {
 				++compensateTicks;
-			}
+			}*/
 
 		}
+
 		return false;
 	}
 
@@ -556,20 +547,41 @@ class DimmingPWM {
 		Node* end = dimmingStates.end();
 
 		Node* found = nullptr;
-		for(Node* searchedDimmingState = dimmingStates.begin(); searchedDimmingState != end; searchedDimmingState = searchedDimmingState->nextNode()){
+		noInterrupts();
+		Node* searchedDimmingState = dimmingStates.begin();
+		interrupts();
+		while(1){
+			noInterrupts();
+			if(searchedDimmingState == end){
+				break;
+			}
 			if(searchedDimmingState->value.ledId == ledId){
 				found = searchedDimmingState;
 				break;
 			}
+			searchedDimmingState = searchedDimmingState->nextNode();
+			interrupts();
+		}
+		decltype(DimmingState::tickRate) newTickRate;
+		decltype(DimmingState::accumulatedBrightness) newAccumulatedBrightness;
+		
+		if(ticks == 0 || startBrightness == targetBrightness){
+			newTickRate = 0;
+			newAccumulatedBrightness = ((int32_t)targetBrightness) << SHIFT_SCALE;
+		}
+		else {
+			int32_t scaledDelta = ((int32_t)targetBrightness - (int32_t)startBrightness) << SHIFT_SCALE;
+			newTickRate = scaledDelta / ticks;
+			newAccumulatedBrightness = ((int32_t)startBrightness) << SHIFT_SCALE;
 		}
 
-		int32_t scaledDelta = ((int32_t)targetBrightness - (int32_t)startBrightness) << SHIFT_SCALE;
+		noInterrupts();
 		if(found == nullptr){
 			dimmingStates.insertAfter(
 				dimmingStates.beforeBegin(),
 				DimmingState{
-					.accumulatedBrightness = ((int32_t)startBrightness) << SHIFT_SCALE,
-					.tickRate = scaledDelta / ticks,
+					.accumulatedBrightness = newAccumulatedBrightness,
+					.tickRate = newTickRate,
 					.targetBrightness = targetBrightness,
 					.ledId = ledId
 				}
@@ -578,18 +590,19 @@ class DimmingPWM {
 		}
 		else {
 			DimmingState& reused = found->value;
-			reused.accumulatedBrightness = ((int32_t)startBrightness) << SHIFT_SCALE;
-			reused.tickRate = scaledDelta / ticks;
+			reused.accumulatedBrightness = newAccumulatedBrightness;
+			reused.tickRate = newTickRate;
 			reused.targetBrightness = targetBrightness;
 			reused.ledId = ledId;
+			
 		}
+		interrupts();
 	}
 
 
 	DimmingStateList dimmingStates;
-	Node* currentDimmingState = dimmingStates.begin();
-	Node* previousDimmingState = dimmingStates.beforeBegin();
-	uint16_t compensateTicks = 1;
+	volatile Node* currentDimmingState = dimmingStates.begin();
+	volatile Node* previousDimmingState = dimmingStates.beforeBegin();
 };
 
 
