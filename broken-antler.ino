@@ -59,13 +59,14 @@ void printButtonHandler(ButtonEvent state){
 
 #define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+//Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 TimedExecution1ms testTime;
 
  static uint32_t startTime = 0;
 
 volatile static uint32_t testTimeTook = 0;
+
 
 void setup()
 {
@@ -79,13 +80,44 @@ void setup()
 	
 
 	//enable two after done with sched pwm
-	//initAnimationsSwitcher();
+	initAnimationsSwitcher();
 	initTimers();
-  	//initAnimations();
+  	initAnimations();
 	initRTC();
 
-	//FixedForwardList<10, int> list;
-	//using Node = FixedForwardList<10, int>::Node;
+	/*FixedForwardList<10, int> list;
+	using Node = FixedForwardList<10, int>::Node;
+
+	list.insertAfter(list.insertAfter(list.insertAfter(list.beforeBegin(), 1), 2), 3);
+		
+	Serial.println(F("-----"));
+	for(const Node* node = list.cbegin(); node != list.cend(); node = node->nextNode()){
+		Serial.println(node->value);
+	}
+	Serial.println(F("-----\n"));
+	FixedForwardList<10, int> copy(list);
+
+	list.insertAfter(list.beforeBegin(), 4);
+	copy.insertAfter(copy.beforeBegin(), 8);
+	copy.insertAfter(copy.beforeBegin(), 9);
+	//copy = list;
+
+	Serial.println(F("-----"));
+	for(const Node* node = copy.cbegin(); node != copy.cend(); node = node->nextNode()){
+		Serial.println(node->value);
+	}
+	Serial.println(F("-----\n"));
+	for(auto& node : copy.nodes){
+		Serial.print('[');
+		Serial.print(copy.indexByNode(&node));
+		Serial.print(']');
+		Serial.println(node.value);
+	}
+	Serial.println(F("-----"));
+	Serial.println(copy.indexByNode(copy.begin_ptr));*/
+
+	
+
 	/*for(const auto& a : list.nodes){
 		Serial.print(list.indexByNode(&a));
 		Serial.print(" ");
@@ -227,6 +259,16 @@ void setup()
 	
 	SPWM_ATmega328P::testImplementation();
 
+	/*****
+	dimmingTimedExecution.setup(
+		[](TimedExecution1ms&){
+			SPWM_ATmega328P::SchedPWM_TIMER2.dimming.process<1>(SPWM_ATmega328P::SchedPWM_TIMER2);
+			dimmingTimedExecution.restart(2);
+			//Serial.println("~~~~HERE");
+		},
+		1
+	);
+	*/
 	//Serial.print("AAAA: ");
 	//Serial.println(SchedPWM.isLedExclusive(0,0x02));
 
@@ -303,6 +345,9 @@ void setup()
 
 bool isOn = false;
 
+
+
+
 static int lastTime  = 0;
 void loop()
 {
@@ -366,9 +411,11 @@ void loop()
  //}
  //debugAudioSampler();
  //delay(1);
-  //handleAnimations();
+  handleAnimations();
   //Serial.println(testTimeTook);
-  delay(100);
+  //delay(2);
+  //SPWM_ATmega328P::SchedPWM_TIMER2.dimming.process<1>(SPWM_ATmega328P::SchedPWM_TIMER2);
+  //Serial.println(millis());
   //SchedPWM.pwmISR();
   //PANIC("ARDUINO PANIC!!");
   //Serial.println(analogRead(A7));
