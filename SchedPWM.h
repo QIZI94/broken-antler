@@ -60,7 +60,7 @@ static_assert(\
 );
 
 static constexpr uint8_t DEFAULT_MAX_BRIGHTNESS = UINT64_MAX - 10;
-static constexpr uint8_t MAX_VALUE = (uint8_t(UINT64_MAX) >> 6) + 1;
+static constexpr uint8_t MAX_VALUE = (uint8_t(UINT64_MAX) >> 6) ;
 
 template<size_t N, class Impl, typename LED_ID_TYPE,  typename STEP_STORAGE_TYPE, typename BRIGHTNESS_TYPE = uint8_t>
 class ScheduledPWM{
@@ -81,7 +81,7 @@ public: // static constants
 	static constexpr BRIGHTNESS_TYPE MAX_VALUE_OF_BRIGHTNESS = UINT64_MAX;
 	static constexpr BRIGHTNESS_TYPE DEFAULT_MIN_BRIGHTNESS = 0;
 	static constexpr BRIGHTNESS_TYPE DEFAULT_MAX_BRIGHTNESS = MAX_VALUE_OF_BRIGHTNESS - 10;
-	static constexpr BRIGHTNESS_TYPE DEFAULT_BRIGHTNESS_DELTA = (MAX_VALUE_OF_BRIGHTNESS >> 6) + 1;
+	static constexpr BRIGHTNESS_TYPE DEFAULT_BRIGHTNESS_DELTA = (MAX_VALUE_OF_BRIGHTNESS >> 6) + 2;
 	static constexpr uint8_t GetOtherBufferIndex[2] {1,0};
 public: // type definitions
 	using BrightnessType = BRIGHTNESS_TYPE;
@@ -263,10 +263,17 @@ public: // member functions
 	bool pwmISR(){
 		
 		//PANIC("ScheduledPWM::pwmISR");
-		StepList& steps = stepsBuffer[activeStepsIndex];
-		if(currentStepNode == steps.begin()){
+		
+		if(currentStepNode == stepsBuffer[activeStepsIndex].end()){
+			if(activeStepsIndex != newIndex){
+				activeStepsIndex = newIndex;
+				writableBufferReady = false;
+			}
+			currentStepNode = stepsBuffer[activeStepsIndex].begin();
+			
 			onDutyCycleBegin();
 		}
+		StepList& steps = stepsBuffer[activeStepsIndex];
 		const PWMStep& currentStep = currentStepNode->value;
 
 		processLedStep(currentStep.bitStorage);
@@ -277,11 +284,6 @@ public: // member functions
 		currentStepNode = currentStepNode->nextNode();
 		if(currentStepNode == steps.end()){
 			onDutyCycleEnd();
-			if(activeStepsIndex != newIndex){
-				activeStepsIndex = newIndex;
-				writableBufferReady = false;
-			}
-			currentStepNode = stepsBuffer[activeStepsIndex].begin();
 			stateStorage = {};
 			return true;
 		}
@@ -314,7 +316,64 @@ public: // member functions
 
 		return foundLedIDsBrightness;
 	}
+/*
+	struct ComputedBrightnessResult {
+		LedID ledId;
+		BrightnessType brightness;
+	};
+	template<size_t N>
+	struct ComputedBrightness {
+		ComputedBrightnessResult results[N];
+	};
+	template<SizeType N>
+	ComputedBrightness<N> computeBrightnessForMany(const LedID (&ledIDs)[N], BufferIndex bufferIndex) const {
+		const StepList& steps = bufferIndex == BufferIndex::Active ? stepsBuffer[activeStepsIndex] : stepsBuffer[GetOtherBufferIndex[activeStepsIndex]];
+		const StepNode* searchedStepNode = steps.cbegin();
+		const StepNode* cend = steps.cend();
 
+		struct Searched
+
+		LedID searchedLedIds[N];
+		ComputedBrightness<N> computedBrightness;
+		
+		//computedBrightness.results[0].
+		size_t searchedEndIdx = 0;
+		for(size_t inputIdx = 0; inputIdx < N; ++inputIdx){
+			LedID ledId = ledIDs[inputIdx];
+			if(isLedAssigned(ledIDs[inputIdx], searchedStepNode->value.bitStorage)){
+				searchedLedIds[searchedEndIdx++] = ledId;				
+			}
+			computedBrightness.results[inputIdx].ledId = ledId;
+			computedBrightness.results[inputIdx].brightness = 0;
+		}
+
+		BrightnessType foundLedIDsBrightness = 0;
+		if(searchedEndIdx == 0){
+			while(1){
+				foundLedIDsBrightness = searchedStepNode->value.nextIsrTime;
+				searchedStepNode = searchedStepNode->nextNode();//steps.nextNode(searchedStepNode);
+				
+				if(searchedStepNode == cend){
+					// this should not happen, put error here
+					break;
+				}
+				for(size_t searchedIdx = 0; searchedIdx < searchedEndIdx; ++searchedIdx){
+					LedId searchedLedId = searchedLedIds[searchedIdx];
+					if(isLedAssigned(searchedLedId, searchedStepNode->value.bitStorage)){
+
+						
+					}
+				}
+				
+				if(isLedAssigned(ledID, searchedStepNode->value.bitStorage)){
+					break;
+				}
+			}
+			
+		}
+
+		return foundLedIDsBrightness;
+	}*/
 
 	inline const StepList& getStepList(BufferIndex bufferIndex) const {
 		return bufferIndex == BufferIndex::Active ? stepsBuffer[activeStepsIndex] : stepsBuffer[GetOtherBufferIndex[activeStepsIndex]];
@@ -339,6 +398,10 @@ public: // member functions
 
 	BrightnessType getMaxBrightness() const {
 		return maxBrightness;
+	}
+
+	uint8_t getActiveIndex() const {
+		return activeStepsIndex;
 	}
 
 
@@ -479,17 +542,19 @@ class DimmingPWM {
 
 	public: // member functions 
 
-	template<size_t N_STATES_TO_PROCESS = DimmingStateList::BUFFER_SIZE>
+	template<typename DimmingStateList::SizeType N_STATES_TO_PROCESS = DimmingStateList::BUFFER_SIZE>
 	bool process(ScheduledPWMImpl& schedPWM){
 		SCHEDULED_PWM_TRACEBACK_ENTRY
 		//Serial.println("-----------------------");
+		//noInterrupts();
 		if(currentDimmingState == dimmingStates.end()){
 			return true;
 		}
+		//interrupts();
 		bool shouldBreak = false;
 		for(size_t processedCounter = 0; processedCounter < N_STATES_TO_PROCESS; ++processedCounter){
 			
-			noInterrupts();
+			//noInterrupts();
 			
 			volatile DimmingState& dimmingState = currentDimmingState->value;
 			BrightnessType currentBrightness = dimmingState.accumulatedBrightness >> SHIFT_SCALE;
@@ -514,7 +579,12 @@ class DimmingPWM {
 
 			}
 			else {
-				dimmingState.accumulatedBrightness += dimmingState.tickRate * dimmingStates.size();
+				if(N_STATES_TO_PROCESS == 1){
+					dimmingState.accumulatedBrightness += dimmingState.tickRate * dimmingStates.size();
+				}
+				else {
+					dimmingState.accumulatedBrightness += dimmingState.tickRate;
+				}
 				previousDimmingState = currentDimmingState;
 				currentDimmingState = currentDimmingState->nextNode();
 			}
@@ -527,7 +597,8 @@ class DimmingPWM {
 				shouldBreak = true;
 				//break;
 			}
-			interrupts();
+			//interrupts();
+			
 			if(instantChange || currentBrightness != targetBrightness){
 				schedPWM.setLedPWM(ledId, currentBrightness);
 			}
@@ -598,6 +669,26 @@ class DimmingPWM {
 			
 		}
 		interrupts();
+	}
+
+	Node* findDimmingHandle(LedID ledId){
+		Node* end = dimmingStates.end();
+		Node* searchedDimmingState = dimmingStates.begin();
+		Node* beforeSearchedDimmingState = dimmingStates.beforeBegin();
+		for(Node* searchedDimmingState = dimmingStates.begin(); searchedDimmingState != end; searchedDimmingState = searchedDimmingState->nextNode()){
+			if(searchedDimmingState->value.ledId == ledId){
+				searchedDimmingState = beforeSearchedDimmingState;
+				break;
+			}
+			beforeSearchedDimmingState = searchedDimmingState;
+		}
+		return searchedDimmingState;
+	}
+
+	void stopDimming(Node* beforeHandle){
+		if(beforeHandle != nullptr && beforeHandle != dimmingStates.end()){
+			dimmingStates.removeAfter(beforeHandle);
+		}
 	}
 
 
