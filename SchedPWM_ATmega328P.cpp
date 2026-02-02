@@ -131,9 +131,7 @@ namespace SPWM_ATmega328P{
 		sei();                      // enable interrupts
 
 	}
-	ISR(TIMER2_COMPB_vect) {
-		SchedPWM_TIMER2.pwmISR();
-	}
+
 	/*void ScheduledPWM_TIMER2::testImplementation(){
 		//using StepNode = ScheduledPWM_TIMER2::StepNode;
 		//using PWMStep = ScheduledPWM_TIMER2::PWMStep;
@@ -218,11 +216,11 @@ namespace SPWM_ATmega328P{
 
 
 	void testImplementation(){
-		SchedPWM_TIMER2.begin();
+		//SchedPWM_TIMER2.begin();
 		//dim.setDimming(13, 0, 100, 100);
 		
 		//SchedPWM_TIMER2.setLedPWM(13, 2);
-		return;
+		//return;
 		//ScheduledPWM_TIMER2 schedPWM;
 		//schedPWM.testImplementation();
 		

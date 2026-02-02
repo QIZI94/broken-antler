@@ -120,8 +120,8 @@ struct StateStorage{
 };
 
 
-static void initTIMER2();
-static void setNextIsrTimeForTIMER2(uint8_t brightness);
+extern void initTIMER2();
+extern void setNextIsrTimeForTIMER2(uint8_t brightness);
 
 
 
@@ -136,7 +136,7 @@ public:
 	using LedID = SharedImpl::Pin;
 	using BitStorageType = SharedImpl::StateStorage;
 	using BrightnessType = uint8_t;
-	ScheduledPWM_TIMER2() : ScheduledPWM(1) {
+	ScheduledPWM_TIMER2() : ScheduledPWM(5) {
 		
 	}
 	void begin(){
@@ -175,7 +175,7 @@ public:
 	}
 
 	//void testImplementation();
-DimmingPWM<ScheduledPWM_TIMER2> dimming;
+//DimmingPWM<ScheduledPWM_TIMER2> dimming;
 
 private:
 	void assignLed(LedID ledId, BitStorageType& stepStorage) {
@@ -219,7 +219,7 @@ private:
 	friend ScheduledPWM;
 };
 
-inline ScheduledPWM_TIMER2<12> SchedPWM_TIMER2;
+
 extern void testImplementation();
 }
 
