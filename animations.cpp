@@ -289,9 +289,9 @@ constexpr uint8_t bassStepPatternDurations[]{
 };
 constexpr float repeatBassDivisor = 2.4;
 static const PROGMEM AnimationStep fastFlowAnimSteps[] = {
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = bassStepPatternDurations[0]},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = bassStepPatternDurations[0]},
     AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70), .duration = bassStepPatternDurations[1]},
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = bassStepPatternDurations[2]},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = bassStepPatternDurations[2]},
 	STEP_DELAY(20)
 	//STEP_DELAY(10000)
     
@@ -351,9 +351,9 @@ static const PROGMEM AnimationDef idleFlowColorRotation[] = DEFINE_ANIMATION(
 );
 
 static const PROGMEM AnimationStep slowFlowAnimSteps[] = {
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = 10},
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70), .duration = 1500},
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = 1300},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(25), .duration = 10},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(80), .duration = 1500},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(25), .duration = 1300},
 	//STEP_DELAY(10000)
     
 };
@@ -477,8 +477,8 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 
 
 void initAnimationsSwitcher(){
-	//setAnimation(leftRightFlowAnim);
-	
+	//setAnimation(allLedsOnAnim);
+	//setAudioLink(bassAnimation, repeatedBassAnimation, idleFlow,0);
 	setButtonHandlerFunc(buttonSwitchAnimationHandler);
 
 
