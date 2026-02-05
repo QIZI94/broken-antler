@@ -59,8 +59,6 @@ static_assert(\
 	"Derived class doesn't implement method with signature '" #ReturnType " " #Method #Args\
 );
 
-static constexpr uint8_t DEFAULT_MAX_BRIGHTNESS = UINT64_MAX - 10;
-static constexpr uint8_t MAX_VALUE = (uint8_t(UINT64_MAX) >> 6) ;
 
 template<size_t N, class Impl, typename LED_ID_TYPE,  typename STEP_STORAGE_TYPE, typename BRIGHTNESS_TYPE = uint8_t>
 class ScheduledPWM{
@@ -103,6 +101,7 @@ public: // type definitions
 	using StepNode = typename StepList::Node;
 
 	enum class BufferIndex : uint8_t{
+		Recent,
 		Active,
 		Writable
 	};
@@ -291,8 +290,9 @@ public: // member functions
 		return false;
 	}
 
-	BrightnessType computeBrightness(LedID ledID, BufferIndex bufferIndex) const {
-		const StepList& steps = bufferIndex == BufferIndex::Active ? stepsBuffer[activeStepsIndex] : stepsBuffer[GetOtherBufferIndex[activeStepsIndex]];
+	BrightnessType computeBrightness(LedID ledID, BufferIndex bufferIndex = BufferIndex::Recent) const {
+		
+		const StepList& steps = getStepList(bufferIndex);
 		const StepNode* searchedStepNode = steps.cbegin();
 		const StepNode* cend = steps.cend();
 
@@ -375,8 +375,21 @@ public: // member functions
 		return foundLedIDsBrightness;
 	}*/
 
-	inline const StepList& getStepList(BufferIndex bufferIndex) const {
-		return bufferIndex == BufferIndex::Active ? stepsBuffer[activeStepsIndex] : stepsBuffer[GetOtherBufferIndex[activeStepsIndex]];
+	inline const StepList& getStepList(BufferIndex bufferIndex = BufferIndex::Recent) const {
+		
+		uint8_t stepListBufferIndex;
+		switch(bufferIndex){
+			case BufferIndex::Recent:
+				stepListBufferIndex = activeStepsIndex != newIndex ? GetOtherBufferIndex[activeStepsIndex] : activeStepsIndex;
+				break;
+			case BufferIndex::Active:
+				stepListBufferIndex = activeStepsIndex;
+				break;
+			case BufferIndex::Writable:
+				stepListBufferIndex = GetOtherBufferIndex[activeStepsIndex];
+				break;
+		}
+		return stepsBuffer[stepListBufferIndex];
 	}
 
 
