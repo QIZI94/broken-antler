@@ -4,7 +4,7 @@
 #include "SchedPWM_ATmega328P.h"
 #include "leddefinition.h"
 using LedsPWM = SPWM_ATmega328P::ScheduledPWM_TIMER2<uint8_t(LedPosition::NUM_OF_ALL_LEDS) * 2>;
-inline LedsPWM ledsPWM;
+inline LedsPWM ledsPWM(6);
 
 
 #endif
