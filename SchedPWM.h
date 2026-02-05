@@ -560,7 +560,10 @@ class DimmingPWM {
 		SCHEDULED_PWM_TRACEBACK_ENTRY
 		//Serial.println("-----------------------");
 		//noInterrupts();
-		if(currentDimmingState == dimmingStates.end()){
+		/*if(paused){
+			return false;
+		}
+		else*/ if(currentDimmingState == dimmingStates.end()){
 			return true;
 		}
 		//interrupts();
@@ -704,10 +707,19 @@ class DimmingPWM {
 		}
 	}
 
+	void setPaused(bool paused){
+		this->paused = paused;
+	}
+
+	bool isPaused() const {
+		return paused;
+	}
+
 
 	DimmingStateList dimmingStates;
 	volatile Node* currentDimmingState = dimmingStates.begin();
 	volatile Node* previousDimmingState = dimmingStates.beforeBegin();
+	volatile bool paused = false;
 };
 
 
