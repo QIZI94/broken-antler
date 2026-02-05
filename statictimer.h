@@ -3,11 +3,12 @@
 
 #include <inttypes.h>
 
-template<uint32_t TICK_VALUE_AMOUNT = 1>
+template<uint32_t TICK_VALUE_AMOUNT = 1, typename COUNTER_TYPE = uint32_t>
 class StaticTimer{
-
+public: 
+	using counter_t = COUNTER_TYPE;
 public:
-	static constexpr uint32_t TICK_VALUE = TICK_VALUE_AMOUNT;
+	static constexpr counter_t TICK_VALUE = TICK_VALUE_AMOUNT;
 public:
     ~StaticTimer() {
         // unregister timer upon destruction,
@@ -46,20 +47,20 @@ public:
 		}
     }
 
-    void reset(uint32_t interval) volatile {
+    void reset(counter_t interval) volatile {
         countdown = interval/TICK_VALUE;
     }
 
-	void restart(uint32_t interval) volatile {
+	void restart(counter_t interval) volatile {
 		reset(interval);
 		enable();
 	}
 
-	uint32_t getCurrentCountDown() const volatile {
+	counter_t getCurrentCountDown() const volatile {
 		return countdown;
 	}
 	
-	uint32_t getRemainingTime() const volatile {
+	counter_t getRemainingTime() const volatile {
 		return countdown*TICK_VALUE;
 	}
 
@@ -111,7 +112,7 @@ private: // static functions
 		}
     }
 private: // variables
-    volatile uint32_t countdown = 0;
+    volatile counter_t countdown = 0;
     volatile StaticTimer* prev = nullptr;
     volatile StaticTimer* next = nullptr;
 };
