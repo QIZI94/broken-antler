@@ -136,7 +136,12 @@ public:
 	using LedID = SharedImpl::Pin;
 	using BitStorageType = SharedImpl::StateStorage;
 	using BrightnessType = uint8_t;
-	ScheduledPWM_TIMER2() : ScheduledPWM(5) {
+
+	ScheduledPWM_TIMER2(		
+		BrightnessType minBrightness = ScheduledPWM::DEFAULT_MIN_BRIGHTNESS,
+		BrightnessType maxBrightness = ScheduledPWM::DEFAULT_MAX_BRIGHTNESS,
+		BrightnessType brightnessDelta = ScheduledPWM::DEFAULT_BRIGHTNESS_DELTA
+	) : ScheduledPWM(minBrightness, maxBrightness, brightnessDelta) {
 		
 	}
 	void begin(){
