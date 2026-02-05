@@ -129,8 +129,6 @@ public: // member functions
 		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, isLedAssigned, bool, (LedID, const BitStorageType&) const);
 		/// bool isLedExclusive(LedID, const BitStorageType&) const
 		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, isLedExclusive, bool, (LedID, const BitStorageType&) const);
-		/// bool isLedStepShared(LedID, const BitStorageType&, const BitStorageType&) const
-		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, isLedStepShared, bool, (LedID, const BitStorageType&, const BitStorageType&) const);
 		/// void onDutyCycleBegin()
 		_HAS_METHOD_IMPLEMENTED_HELPER(Impl, onDutyCycleBegin, void, ());
 		/// void onDutyCycleEnd()
@@ -483,10 +481,6 @@ private: // member functions
 	*/
 	bool isLedExclusive(LedID ledId, const BitStorageType& stepStorage) const{
 		return static_cast<const Impl*>(this)->isLedExclusive(ledId, stepStorage);
-	}
-
-	bool isLedStepShared(LedID ledId, const BitStorageType& previousStepStorage, const BitStorageType& currentStepStorage) const{
-		return static_cast<const Impl*>(this)->isLedStepShared(ledId, previousStepStorage, currentStepStorage);
 	}
 
 	/**

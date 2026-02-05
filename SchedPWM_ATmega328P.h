@@ -115,7 +115,6 @@ struct StateStorage{
 	void unassign(Pin pin, PortMasks& ownedPins);
 	bool isAssigned(Pin pin) const;
 	bool isExclusive(Pin pin) const;
-	bool isSharedWith(Pin pin, const StateStorage& other) const;
 	void applyState(StateStorage& xored, const PortMasks& ownedPins) const;
 };
 
@@ -196,10 +195,6 @@ private:
 	}
 	bool isLedExclusive(LedID ledId, const BitStorageType& stepStorage) const {
 		return stepStorage.isExclusive(ledId);
-	}
-
-	bool isLedStepShared(LedID ledId, const BitStorageType& previousStepStorage, const BitStorageType& currentStepStorage) const {
-		return previousStepStorage.isSharedWith(ledId, currentStepStorage);
 	}
 
 	void processLedStep(BitStorageType& xoredStep, const BitStorageType& stepStorage) {
