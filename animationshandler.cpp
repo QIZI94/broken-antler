@@ -13,8 +13,8 @@
 
 #define PROGMEM_READ_STRUCTURE(p_dst, p_src) do { memcpy_P(p_dst, p_src, sizeof(*p_dst));} while (0)
 
-#define TICKS_PROCESSING_SCALER (0)
-#define DURATION_TO_TICKS(duration) ((duration>>TICKS_PROCESSING_SCALER) + 12)
+#define TICKS_PROCESSING_SCALER (1)
+#define DURATION_TO_TICKS(duration) ((duration>>TICKS_PROCESSING_SCALER))
 
 enum class AnimationRunModeState : uint8_t {
 	RUN,
@@ -59,7 +59,7 @@ struct LedAnimationStateTimer : public TimedExecution1ms{
 };
 
 static constexpr uint32_t DIMMING_PROCESSING_INTERVAL = 0x01 << TICKS_PROCESSING_SCALER;
-using LedsDimming = DimmingPWM<decltype(ledsPWM)>;
+using LedsDimming = DimmingPWM<LedsPWM>;
 static LedsDimming ledsDimming;
 static TimedExecution1ms dimmingProcessingTimer;
 
@@ -115,7 +115,8 @@ static void handleLedAnimation(TimedExecution1ms& timer){
 	if(!currentStep->isDelay()){
 		LedDef led = LED_AllLeds[size_t(loadedAnimDef.ledPosition)];
 
-		using BufferIndex = decltype(ledsPWM)::BufferIndex;
+		using BufferIndex = LedsPWM::BufferIndex;
+		//ledsDimming.setPaused(false);
 		
 		//uint8_t previousBlueBrightness = ledsPWM.computeBrightness(led.red.pin,BufferIndex::Writable);
 		//uint8_t previousRedBrightness = ledsPWM.computeBrightness(led.blue.pin, BufferIndex::Writable);
@@ -123,8 +124,8 @@ static void handleLedAnimation(TimedExecution1ms& timer){
 		uint8_t previousRedBrightness = processedAnimation.lastBrightness.red;
 		uint8_t blueBrightness = led.blue.convertBrightness(currentStep->brightness.blue);
 		uint8_t redBrightness = led.red.convertBrightness(currentStep->brightness.red);
-		ledsDimming.setDimming(led.red.pin, previousRedBrightness == 255 ? ledsPWM.computeBrightness(led.red.pin, BufferIndex::Active) : previousRedBrightness, redBrightness, DURATION_TO_TICKS(duration));
-		ledsDimming.setDimming(led.blue.pin, previousBlueBrightness == 255 ? ledsPWM.computeBrightness(led.blue.pin, BufferIndex::Active) : previousBlueBrightness, blueBrightness, DURATION_TO_TICKS(duration));
+		ledsDimming.setDimming(led.red.pin, previousRedBrightness == 255 ? ledsPWM.computeBrightness(led.red.pin) : previousRedBrightness, redBrightness, DURATION_TO_TICKS(duration));
+		ledsDimming.setDimming(led.blue.pin,  previousBlueBrightness == 255 ? ledsPWM.computeBrightness(led.blue.pin) : previousBlueBrightness, blueBrightness, DURATION_TO_TICKS(duration));
 
 		processedAnimation.lastBrightness.blue = blueBrightness;
 		processedAnimation.lastBrightness.red = redBrightness;
@@ -186,7 +187,7 @@ static void handleLedAnimation(TimedExecution1ms& timer){
 				break;
 		}
 	}
-	timer.restart(duration);
+	timer.restart(duration + 2);
 }
 
 
@@ -241,13 +242,14 @@ static void startAnimation(const AnimationDef* animation, bool runOnce = false){
 			
 		}
 	}
+	ledsDimming.dimmingStates.clear();
 	for(LedDef led : LED_AllLeds){
 		//SoftPWMSetFadeTime(led.blue.pin, 0, 0);
 		//SoftPWMSetFadeTime(led.red.pin, 0, 0);
 		//setAnimationLed(led, LedBrightness::from(0), true);
 	
-		ledsDimming.stopDimming(ledsDimming.findDimmingHandle(led.red.pin));
-		ledsDimming.stopDimming(ledsDimming.findDimmingHandle(led.blue.pin));
+		/*ledsDimming.stopDimming(ledsDimming.findDimmingHandle(led.red.pin));
+		ledsDimming.stopDimming(ledsDimming.findDimmingHandle(led.blue.pin));*/
 
 		ledsPWM.setLedPWM(led.red.pin, 0);
 		ledsPWM.setLedPWM(led.blue.pin, 0);
@@ -260,7 +262,7 @@ static void startAnimation(const AnimationDef* animation, bool runOnce = false){
 static void changeAnimation(const AnimationDef* animation, bool runOnce = false, uint8_t speedShift = 0){
 	uint8_t activeCount = 0;
 	if(animation != nullptr){
-		
+		//ledsDimming.setPaused(true);
 		const AnimationDef* animationIt = animation;
 		size_t animationIndex = 0;
 
@@ -438,6 +440,7 @@ void initAnimations(){
 
 	//setAnimationLed(LED_EyeLeft, 50, true);
 	dimmingTimer.restart(1);
+	//ledsDimming.setPaused(true);
 }
 
 void handleAnimations(){
