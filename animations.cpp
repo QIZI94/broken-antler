@@ -105,10 +105,10 @@ static const PROGMEM AnimationStep leftRightFlowRightBackAnimSteps[] = {
 
 // VIU VIU POLICE
 static const PROGMEM AnimationStep rightBlueViu[] = {
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20, 0), .duration = 650},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(30, 0), .duration = 650},
 
 	STEP_DELAY(100),
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(60, 0), .duration = 650},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70, 0), .duration = 650},
 	//STEP_DELAY(500)
 };
 static const PROGMEM AnimationStep leftRedViu[] = {
@@ -285,13 +285,13 @@ static const PROGMEM AnimationDef viuviuPoliceAnimation[] = DEFINE_ANIMATION(
 
 // AUDIOLINK
 constexpr uint8_t bassStepPatternDurations[]{
-	50,25,25
+	50,20,20
 };
-constexpr float repeatBassDivisor = 2.4;
+constexpr float repeatBassDivisor = 1.6;
 static const PROGMEM AnimationStep fastFlowAnimSteps[] = {
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = bassStepPatternDurations[0]},
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70), .duration = bassStepPatternDurations[1]},
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = bassStepPatternDurations[2]},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35,35), .duration = bassStepPatternDurations[0]},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(50, 80), .duration = bassStepPatternDurations[1]},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35, 35), .duration = bassStepPatternDurations[2]},
 	STEP_DELAY(20)
 	//STEP_DELAY(10000)
     
@@ -307,17 +307,17 @@ static const PROGMEM AnimationDef bassAnimation[] = DEFINE_ANIMATION(
 );
 
 static const PROGMEM AnimationStep fasterFlowAnimSteps[] = {
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = bassStepPatternDurations[0] / 1},
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70), .duration = bassStepPatternDurations[1] / 1},
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = bassStepPatternDurations[2] / 1},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35,35), .duration = bassStepPatternDurations[0]},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(50, 80), .duration = bassStepPatternDurations[1]},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35, 35), .duration = bassStepPatternDurations[2]},
 	
 	//STEP_DELAY(10000)
     
 };
 static const PROGMEM AnimationStep fasterFlowWithDelayAnimSteps[] = {
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = bassStepPatternDurations[0] / 1},
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70), .duration = bassStepPatternDurations[1] / 1},
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = bassStepPatternDurations[2] / 1},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35,35), .duration = bassStepPatternDurations[0]},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(50, 80), .duration = bassStepPatternDurations[1]},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35, 35), .duration = bassStepPatternDurations[2]},
 	STEP_DELAY(10/repeatBassDivisor)
 	//STEP_DELAY(10000)
     
@@ -334,9 +334,9 @@ static const PROGMEM AnimationDef repeatedBassAnimation[] = DEFINE_ANIMATION(
 
 static const PROGMEM AnimationStep slowFlowColorRotationAnimSteps[] = {
 
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20,90), .duration = 1400},
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(40,70), .duration = 1400},
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70,50), .duration = 1400},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(50,90), .duration = 1400},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70,70), .duration = 1400},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(90,50), .duration = 1400},
 
     
 };
@@ -351,9 +351,9 @@ static const PROGMEM AnimationDef idleFlowColorRotation[] = DEFINE_ANIMATION(
 );
 
 static const PROGMEM AnimationStep slowFlowAnimSteps[] = {
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(25), .duration = 10},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = 10},
     AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(80), .duration = 1500},
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(25), .duration = 1300},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35), .duration = 1300},
 	//STEP_DELAY(10000)
     
 };
@@ -477,7 +477,7 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 
 
 void initAnimationsSwitcher(){
-	//setAnimation(allLedsOnAnim);
+	setAnimation(segmentedFlowAnim);
 	//setAudioLink(bassAnimation, repeatedBassAnimation, idleFlow,0);
 	setButtonHandlerFunc(buttonSwitchAnimationHandler);
 
