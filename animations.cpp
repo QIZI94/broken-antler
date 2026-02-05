@@ -132,57 +132,58 @@ static const PROGMEM AnimationStep disableSteps[] = {
 };
 
 
-
+constexpr uint8_t DNB_MAX_BRIGHTNESS = 50;
+constexpr uint8_t DNB_MIN_BRIGHTNESS = 20;
 // DRUM AND BASS
 constexpr uint16_t beatDuration = 340;
 static const PROGMEM AnimationStep dnbSnaresTimingsSteps[] = {
 
 	//snare
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(100), .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(DNB_MAX_BRIGHTNESS), .duration = 0},
 	STEP_DELAY(20),
 	//snare
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(DNB_MIN_BRIGHTNESS), .duration = 0},
 	STEP_DELAY(beatDuration - 20),
 
 };
 static const PROGMEM AnimationStep dnbSnaresFastTimingsSteps[] = {
 
 	//snare
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(100), .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(DNB_MAX_BRIGHTNESS), .duration = 0},
 	STEP_DELAY(10),
 	//snare
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(DNB_MIN_BRIGHTNESS), .duration = 0},
 	STEP_DELAY(beatDuration - 10),
 
 };
 static const PROGMEM AnimationStep dnbKickTimingsSteps[] = {
 	//kick
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(100), .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(DNB_MAX_BRIGHTNESS), .duration = 0},
 	STEP_DELAY(50),
 	//kick
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(DNB_MIN_BRIGHTNESS), .duration = 0},
 	STEP_DELAY(beatDuration - 50),
 
 
 	//kick
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(100), .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(DNB_MAX_BRIGHTNESS), .duration = 0},
 	STEP_DELAY(50),
 	//kick
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 0},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(DNB_MIN_BRIGHTNESS), .duration = 0},
 	STEP_DELAY(beatDuration - 50),
 
 	STEP_DELAY(100),
 	//kick
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(100), .duration = 10},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(DNB_MAX_BRIGHTNESS), .duration = 10},
 	STEP_DELAY(10),
 	//kick
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 10},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(DNB_MIN_BRIGHTNESS), .duration = 10},
 	STEP_DELAY(beatDuration - 30),
 	//kick
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(100), .duration = 10},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(DNB_MAX_BRIGHTNESS), .duration = 10},
 	STEP_DELAY(10),
 	//kick
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20), .duration = 10},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(DNB_MIN_BRIGHTNESS), .duration = 10},
 	STEP_DELAY(beatDuration - 30),
 
 };
@@ -477,8 +478,8 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 
 
 void initAnimationsSwitcher(){
-	setAnimation(segmentedFlowAnim);
-	//setAudioLink(bassAnimation, repeatedBassAnimation, idleFlow,0);
+	//setAnimation(dmbBeatAnimation);
+	setAudioLink(bassAnimation, repeatedBassAnimation, idleFlow,0);
 	setButtonHandlerFunc(buttonSwitchAnimationHandler);
 
 
