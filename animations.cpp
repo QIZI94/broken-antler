@@ -288,11 +288,46 @@ static const PROGMEM AnimationDef viuviuPoliceAnimation[] = DEFINE_ANIMATION(
 constexpr uint8_t bassStepPatternDurations[]{
 	50,20,20
 };
+
+constexpr LedBrightness bassStepPatternBrightnesses[] = {
+	PERCENTAGE_TO_BRIGHTNESS(35,35),
+	PERCENTAGE_TO_BRIGHTNESS(50, 80),
+	PERCENTAGE_TO_BRIGHTNESS(35, 35),
+};
+
+constexpr LedBrightness bassRedStepPatternBrightnesses[] = {
+	PERCENTAGE_TO_BRIGHTNESS(35,35),
+	PERCENTAGE_TO_BRIGHTNESS(25, 80),
+	PERCENTAGE_TO_BRIGHTNESS(35, 35),
+};
+
+constexpr LedBrightness bassBlueStepPatternBrightnesses[] = {
+	PERCENTAGE_TO_BRIGHTNESS(35,35),
+	PERCENTAGE_TO_BRIGHTNESS(50, 25),
+	PERCENTAGE_TO_BRIGHTNESS(35, 35),
+};
 constexpr float repeatBassDivisor = 1.6;
 static const PROGMEM AnimationStep fastFlowAnimSteps[] = {
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35,35), .duration = bassStepPatternDurations[0]},
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(50, 80), .duration = bassStepPatternDurations[1]},
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35, 35), .duration = bassStepPatternDurations[2]},
+    AnimationStep{.brightness = bassStepPatternBrightnesses[0], .duration = bassStepPatternDurations[0]},
+    AnimationStep{.brightness = bassStepPatternBrightnesses[1], .duration = bassStepPatternDurations[1]},
+	AnimationStep{.brightness = bassStepPatternBrightnesses[2], .duration = bassStepPatternDurations[2]},
+	STEP_DELAY(20)
+	//STEP_DELAY(10000)
+    
+};
+static const PROGMEM AnimationStep fastRedFlowAnimSteps[] = {
+    AnimationStep{.brightness = bassRedStepPatternBrightnesses[0], .duration = bassStepPatternDurations[0]},
+    AnimationStep{.brightness = bassRedStepPatternBrightnesses[1], .duration = bassStepPatternDurations[1]},
+	AnimationStep{.brightness = bassRedStepPatternBrightnesses[2], .duration = bassStepPatternDurations[2]},
+	STEP_DELAY(20)
+	//STEP_DELAY(10000)
+    
+};
+
+static const PROGMEM AnimationStep fastBlueFlowAnimSteps[] = {
+    AnimationStep{.brightness = bassBlueStepPatternBrightnesses[0], .duration = bassStepPatternDurations[0]},
+    AnimationStep{.brightness = bassBlueStepPatternBrightnesses[1], .duration = bassStepPatternDurations[1]},
+	AnimationStep{.brightness = bassBlueStepPatternBrightnesses[2], .duration = bassStepPatternDurations[2]},
 	STEP_DELAY(20)
 	//STEP_DELAY(10000)
     
@@ -307,18 +342,88 @@ static const PROGMEM AnimationDef bassAnimation[] = DEFINE_ANIMATION(
 	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 80)
 );
 
+static const PROGMEM AnimationDef bassRedAnimation[] = DEFINE_ANIMATION(
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(fastRedFlowAnimSteps), 0),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(fastRedFlowAnimSteps), 40),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(fastRedFlowAnimSteps), 80),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(fastRedFlowAnimSteps), 0),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(fastRedFlowAnimSteps), 40),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(fastRedFlowAnimSteps), 80)
+);
+
+static const PROGMEM AnimationDef bassBlueAnimation[] = DEFINE_ANIMATION(
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(fastBlueFlowAnimSteps), 0),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(fastBlueFlowAnimSteps), 40),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(fastBlueFlowAnimSteps), 80),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(fastBlueFlowAnimSteps), 0),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(fastBlueFlowAnimSteps), 40),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(fastBlueFlowAnimSteps), 80)
+);
+
+static const PROGMEM AnimationDef bassColorRotateAnimation[] = DEFINE_ANIMATION(
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(fastRedFlowAnimSteps), 0),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 40),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(fastBlueFlowAnimSteps), 80),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(fastRedFlowAnimSteps), 0),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 40),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(fastBlueFlowAnimSteps), 80)
+);
+
+static const PROGMEM AnimationDef bassColorRotateAnimation2[] = DEFINE_ANIMATION(
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(fastBlueFlowAnimSteps), 0),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 40),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(fastRedFlowAnimSteps), 80),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(fastBlueFlowAnimSteps), 0),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(fastFlowAnimSteps), 40),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(fastRedFlowAnimSteps), 80)
+);
+
 static const PROGMEM AnimationStep fasterFlowAnimSteps[] = {
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35,35), .duration = bassStepPatternDurations[0]},
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(50, 80), .duration = bassStepPatternDurations[1]},
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35, 35), .duration = bassStepPatternDurations[2]},
+    AnimationStep{.brightness = bassStepPatternBrightnesses[0], .duration = bassStepPatternDurations[0]},
+    AnimationStep{.brightness = bassStepPatternBrightnesses[1], .duration = bassStepPatternDurations[1]},
+	AnimationStep{.brightness = bassStepPatternBrightnesses[2], .duration = bassStepPatternDurations[2]},
 	
 	//STEP_DELAY(10000)
     
 };
 static const PROGMEM AnimationStep fasterFlowWithDelayAnimSteps[] = {
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35,35), .duration = bassStepPatternDurations[0]},
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(50, 80), .duration = bassStepPatternDurations[1]},
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(35, 35), .duration = bassStepPatternDurations[2]},
+    AnimationStep{.brightness = bassStepPatternBrightnesses[0], .duration = bassStepPatternDurations[0]},
+    AnimationStep{.brightness = bassStepPatternBrightnesses[1], .duration = bassStepPatternDurations[1]},
+	AnimationStep{.brightness = bassStepPatternBrightnesses[2], .duration = bassStepPatternDurations[2]},
+	STEP_DELAY(10/repeatBassDivisor)
+	//STEP_DELAY(10000)
+    
+};
+
+static const PROGMEM AnimationStep fasterRedFlowAnimSteps[] = {
+    AnimationStep{.brightness = bassRedStepPatternBrightnesses[0], .duration = bassStepPatternDurations[0]},
+    AnimationStep{.brightness = bassRedStepPatternBrightnesses[1], .duration = bassStepPatternDurations[1]},
+	AnimationStep{.brightness = bassRedStepPatternBrightnesses[2], .duration = bassStepPatternDurations[2]},
+	
+	//STEP_DELAY(10000)
+    
+};
+static const PROGMEM AnimationStep fasterRedFlowWithDelayAnimSteps[] = {
+    AnimationStep{.brightness = bassRedStepPatternBrightnesses[0], .duration = bassStepPatternDurations[0]},
+    AnimationStep{.brightness = bassRedStepPatternBrightnesses[1], .duration = bassStepPatternDurations[1]},
+	AnimationStep{.brightness = bassRedStepPatternBrightnesses[2], .duration = bassStepPatternDurations[2]},
+	STEP_DELAY(10/repeatBassDivisor)
+	//STEP_DELAY(10000)
+    
+};
+
+static const PROGMEM AnimationStep fasterBlueFlowAnimSteps[] = {
+    AnimationStep{.brightness = bassBlueStepPatternBrightnesses[0], .duration = bassStepPatternDurations[0]},
+    AnimationStep{.brightness = bassBlueStepPatternBrightnesses[1], .duration = bassStepPatternDurations[1]},
+	AnimationStep{.brightness = bassBlueStepPatternBrightnesses[2], .duration = bassStepPatternDurations[2]},
+	
+	//STEP_DELAY(10000)
+    
+};
+static const PROGMEM AnimationStep fasterBlueFlowWithDelayAnimSteps[] = {
+    AnimationStep{.brightness = bassBlueStepPatternBrightnesses[0], .duration = bassStepPatternDurations[0]},
+    AnimationStep{.brightness = bassBlueStepPatternBrightnesses[1], .duration = bassStepPatternDurations[1]},
+	AnimationStep{.brightness = bassBlueStepPatternBrightnesses[2], .duration = bassStepPatternDurations[2]},
 	STEP_DELAY(10/repeatBassDivisor)
 	//STEP_DELAY(10000)
     
@@ -332,6 +437,43 @@ static const PROGMEM AnimationDef repeatedBassAnimation[] = DEFINE_ANIMATION(
 	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(fasterFlowAnimSteps), 40 / repeatBassDivisor),
 	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(fasterFlowWithDelayAnimSteps), 80 / repeatBassDivisor)
 );
+
+static const PROGMEM AnimationDef repeatedRedBassAnimation[] = DEFINE_ANIMATION(
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(fasterRedFlowAnimSteps), 0),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(fasterRedFlowAnimSteps), 40 / repeatBassDivisor),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(fasterRedFlowWithDelayAnimSteps), 80 / repeatBassDivisor),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(fasterRedFlowAnimSteps), 0),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(fasterRedFlowAnimSteps), 40 / repeatBassDivisor),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(fasterRedFlowWithDelayAnimSteps), 80 / repeatBassDivisor)
+);
+
+static const PROGMEM AnimationDef repeatedBlueBassAnimation[] = DEFINE_ANIMATION(
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(fasterBlueFlowAnimSteps), 0),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(fasterBlueFlowAnimSteps), 40 / repeatBassDivisor),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(fasterBlueFlowWithDelayAnimSteps), 80 / repeatBassDivisor),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(fasterBlueFlowAnimSteps), 0),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(fasterBlueFlowAnimSteps), 40 / repeatBassDivisor),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(fasterBlueFlowWithDelayAnimSteps), 80 / repeatBassDivisor)
+);
+static const PROGMEM AnimationDef repeatedColorRotateBassAnimation[] = DEFINE_ANIMATION(
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(fasterRedFlowAnimSteps), 0),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(fasterFlowAnimSteps), 40 / repeatBassDivisor),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(fasterBlueFlowWithDelayAnimSteps), 80 / repeatBassDivisor),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(fasterRedFlowAnimSteps), 0),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(fasterFlowAnimSteps), 40 / repeatBassDivisor),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(fasterBlueFlowWithDelayAnimSteps), 80 / repeatBassDivisor)
+);
+static const PROGMEM AnimationDef repeatedColorRotateBassAnimation2[] = DEFINE_ANIMATION(
+	AnimationDef(LedPosition::LEFT_FRONT,  		AnimationDirection::FORWARD, MAKE_SPAN(fasterBlueFlowAnimSteps), 0),
+	AnimationDef(LedPosition::LEFT_MIDDLE,  	AnimationDirection::FORWARD, MAKE_SPAN(fasterFlowAnimSteps), 40 / repeatBassDivisor),
+	AnimationDef(LedPosition::LEFT_BACK,  		AnimationDirection::FORWARD, MAKE_SPAN(fasterRedFlowWithDelayAnimSteps), 80 / repeatBassDivisor),
+	AnimationDef(LedPosition::RIGHT_FRONT,   	AnimationDirection::FORWARD, MAKE_SPAN(fasterBlueFlowAnimSteps), 0),
+	AnimationDef(LedPosition::RIGHT_MIDDLE, 	AnimationDirection::FORWARD, MAKE_SPAN(fasterFlowAnimSteps), 40 / repeatBassDivisor),
+	AnimationDef(LedPosition::RIGHT_BACK,    	AnimationDirection::FORWARD, MAKE_SPAN(fasterRedFlowWithDelayAnimSteps), 80 / repeatBassDivisor)
+);
+
+
+
 
 static const PROGMEM AnimationStep slowFlowColorRotationAnimSteps[] = {
 
@@ -389,6 +531,26 @@ static const AnimationDef* animationList[] = {
 
 };
 
+static const PROGMEM AudioLinkBassAnimation audioLinkAnimations[] = DEFINE_AUDIO_LINK_BASS_ANIM(
+	AudioLinkBassAnimation{.bassAnimation = bassAnimation, .repeatingBassAnimations = repeatedBassAnimation},
+	AudioLinkBassAnimation{.bassAnimation = bassAnimation, .repeatingBassAnimations = repeatedBassAnimation},
+	AudioLinkBassAnimation{.bassAnimation = bassAnimation, .repeatingBassAnimations = repeatedBassAnimation},
+	AudioLinkBassAnimation{.bassAnimation = bassRedAnimation, .repeatingBassAnimations = repeatedRedBassAnimation},
+	AudioLinkBassAnimation{.bassAnimation = bassBlueAnimation, .repeatingBassAnimations = repeatedBlueBassAnimation}
+	//AudioLinkBassAnimation{.bassAnimation = bassColorRotateAnimation, .repeatingBassAnimations = repeatedColorRotateBassAnimation},
+	//AudioLinkBassAnimation{.bassAnimation = bassColorRotateAnimation2, .repeatingBassAnimations = repeatedColorRotateBassAnimation2}
+);
+
+
+union LastAnimationState {
+	struct{
+		uint16_t audioLinkOn : 1;
+		uint16_t eyesBrightness : 3;
+		uint16_t selectionIndex: 4;
+	};
+	uint16_t value;
+};
+
 constexpr size_t animationListLength = LENGTH_OF_CONST_ARRAY(animationList);
 
 static TimedExecution1ms timedPressTimer;
@@ -423,7 +585,7 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 	}
 	else if(buttonEvent == ButtonEvent::LONG_PRESSED){
 		longPressed = true;
-		setAudioLink(bassAnimation, repeatedBassAnimation, idleFlow,0);
+		setAudioLink(idleFlow, 0, audioLinkAnimations);
 	}
 	if(buttonEvent == ButtonEvent::PRESSED){
 		timedPressTimer.setup(
@@ -479,7 +641,7 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 
 void initAnimationsSwitcher(){
 	//setAnimation(dmbBeatAnimation);
-	setAudioLink(bassAnimation, repeatedBassAnimation, idleFlow,0);
+	setAudioLink(idleFlowColorRotation, 0, audioLinkAnimations);
 	setButtonHandlerFunc(buttonSwitchAnimationHandler);
 
 

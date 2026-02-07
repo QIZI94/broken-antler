@@ -124,8 +124,9 @@ static void handleLedAnimation(TimedExecution1ms& timer){
 		uint8_t previousRedBrightness = processedAnimation.lastBrightness.red;
 		uint8_t blueBrightness = led.blue.convertBrightness(currentStep->brightness.blue);
 		uint8_t redBrightness = led.red.convertBrightness(currentStep->brightness.red);
-		ledsDimming.setDimming(led.red.pin, previousRedBrightness == 255 ? ledsPWM.computeBrightness(led.red.pin) : previousRedBrightness, redBrightness, DURATION_TO_TICKS(duration));
-		ledsDimming.setDimming(led.blue.pin,  previousBlueBrightness == 255 ? ledsPWM.computeBrightness(led.blue.pin) : previousBlueBrightness, blueBrightness, DURATION_TO_TICKS(duration));
+		uint16_t ticks = DURATION_TO_TICKS(duration);
+		ledsDimming.setDimming(led.red.pin, previousRedBrightness == 255 ? ledsPWM.computeBrightness(led.red.pin) : previousRedBrightness, redBrightness, ticks);
+		ledsDimming.setDimming(led.blue.pin,  previousBlueBrightness == 255 ? ledsPWM.computeBrightness(led.blue.pin) : previousBlueBrightness, blueBrightness, ticks);
 
 		processedAnimation.lastBrightness.blue = blueBrightness;
 		processedAnimation.lastBrightness.red = redBrightness;
@@ -187,7 +188,7 @@ static void handleLedAnimation(TimedExecution1ms& timer){
 				break;
 		}
 	}
-	timer.restart(duration + 2);
+	timer.restart(duration + 4);
 }
 
 
@@ -351,10 +352,11 @@ static void changeAnimation(const AnimationDef* animation, bool runOnce = false,
 
 
 static const AnimationDef* newSelectedAnimation = nullptr;
-static const AnimationDef* newBassAnimation = nullptr;
-static const AnimationDef* newRepeatBassAnimation = nullptr;
+static const AudioLinkBassAnimation* newBassAnimations = nullptr;
 static uint8_t newEarlyRepeatTriggerCount = 0;
 static bool runOnlyOnce = false;
+
+
 
 
 void setAnimation(const AnimationDef* newAnimation, bool runOnce){
@@ -362,18 +364,17 @@ void setAnimation(const AnimationDef* newAnimation, bool runOnce){
 	runOnlyOnce = runOnce;
 }
 
-void setAudioLink(const AnimationDef* bassAnimation, const AnimationDef* repeatBassAnimation, const AnimationDef* idleAnimation, uint8_t earlyRepeatTriggerCount){
-	newBassAnimation = bassAnimation;
-	newRepeatBassAnimation = repeatBassAnimation;
+void setAudioLink(const AnimationDef* idleAnimation, uint8_t earlyRepeatTriggerCount, const AudioLinkBassAnimation* bassAnimations){
 	newSelectedAnimation = idleAnimation;
 	newEarlyRepeatTriggerCount = earlyRepeatTriggerCount;
+	newBassAnimations = bassAnimations;
 }
 
 struct AudioLink{
-	const AnimationDef* bassAnimation;
-	const AnimationDef* repeatBassAnimation;
 	const AnimationDef* idleAnimation;
+	const AudioLinkBassAnimation* bassAnimations;
 	uint8_t earlyRepeatTriggerCount;
+	uint8_t bassAnimationsLength;
 } static audioLink;
 
 
@@ -447,13 +448,25 @@ void handleAnimations(){
 	if(newSelectedAnimation != nullptr){
 		noInterrupts();
 		//animationChangeDebounce.reset(20);
-		if(newBassAnimation != nullptr){
+		if(newBassAnimations != nullptr){
+			uint8_t bassAnimLength = 0;
+			const AudioLinkBassAnimation* bassAnimationIt = newBassAnimations;
+			while(true){
+				AudioLinkBassAnimation loadedBassAnimation;
+				PROGMEM_READ_STRUCTURE(&loadedBassAnimation, bassAnimationIt++);
+				if(!loadedBassAnimation.isValid()){
+					break;
+				}
+				++bassAnimLength;
+			}
+			
+			
 			startAudioLink(
 				AudioLink{
-					.bassAnimation=newBassAnimation,
-					.repeatBassAnimation = newRepeatBassAnimation,
 					.idleAnimation=newSelectedAnimation,
-					.earlyRepeatTriggerCount = newEarlyRepeatTriggerCount
+					.bassAnimations = newBassAnimations,
+					.earlyRepeatTriggerCount = newEarlyRepeatTriggerCount,
+					.bassAnimationsLength = bassAnimLength
 				}
 			);
 		}
@@ -463,7 +476,7 @@ void handleAnimations(){
 		}
 		
 		newSelectedAnimation = nullptr;
-		newBassAnimation = nullptr;
+		newBassAnimations = nullptr;
 		interrupts();
 	}
 	if(dimmingTimer.isDown()){
@@ -481,6 +494,7 @@ void handleAnimations(){
 
 
 static uint8_t stayOn1 = 0;
+static uint8_t bassAnimationSwitchCounter = 0;
 void audioLinkHandler(uint16_t avgSample, uint16_t avgOverTime, uint16_t baseline){
 
 	static LowPassFilterFixed bassFilter3(120.0, 1024);
@@ -511,7 +525,7 @@ void audioLinkHandler(uint16_t avgSample, uint16_t avgOverTime, uint16_t baselin
 	
 	//SoftPWMSetFadeTime(LED_LeftFront.blue.pin,0, 0);
 	//SoftPWMSetFadeTime(LED_LeftFront.red.pin, 0, 0);
-	if(((lowPass120 > baseline && (lowPass120 - baseline) > 10))){
+	if(((lowPass120 > baseline && (lowPass120 - baseline) > 30))){
 	//if(filteredLowpass80 > 400){
 	//Serial.println("bass");
 		
@@ -529,21 +543,32 @@ void audioLinkHandler(uint16_t avgSample, uint16_t avgOverTime, uint16_t baselin
 			//bool isCurrentAnimationBass = ledAnimationTimers[0].animationDef == audioLink.bassAnimation;
 			//bool isAnyAnimationRunning = activeAnimationsTimersCount != 0;
 			//bool shouldBassAnimationRepeat = activeAnimationsTimersCount <= 2;
+			// regular bass animation
 			if(
 				activeAnimationsTimersCount != 0 &&
 				ledAnimationTimers[0].animationDef == audioLink.idleAnimation
 			){
-				
-				changeAnimation(audioLink.bassAnimation, true, 0);
+				AnimationDef* bassAnimation;
+				PROGMEM_READ_STRUCTURE(&bassAnimation, &audioLink.bassAnimations[bassAnimationSwitchCounter].bassAnimation);
+
+				changeAnimation(bassAnimation, true, 0);
+
 			}
-			else if(
-				activeAnimationsTimersCount <= audioLink.earlyRepeatTriggerCount &&
-				(
-					ledAnimationTimers[0].animationDef == audioLink.bassAnimation ||
-					ledAnimationTimers[0].animationDef == audioLink.repeatBassAnimation
-				)
-			){
-				changeAnimation(audioLink.repeatBassAnimation, true, 0);
+			// repeat bass animation
+			else if(activeAnimationsTimersCount <= audioLink.earlyRepeatTriggerCount){
+
+				
+				
+				if(
+					ledAnimationTimers[0].animationDef != audioLink.idleAnimation
+				){
+					AnimationDef* repeatingBassAnimations;
+					PROGMEM_READ_STRUCTURE(&repeatingBassAnimations, &audioLink.bassAnimations[bassAnimationSwitchCounter].repeatingBassAnimations);
+
+					
+					changeAnimation(repeatingBassAnimations, true, 0);
+					
+				}
 			}
 			
 			/*if(activeAnimationsTimersCount != 0 && ledAnimationTimers[0].animationDef != audioLink.bassAnimation){
@@ -569,6 +594,10 @@ void audioLinkHandler(uint16_t avgSample, uint16_t avgOverTime, uint16_t baselin
 		}
 		//stayOn1=30;
 		
+	}
+	
+	if(audioLink.bassAnimationsLength <= ++bassAnimationSwitchCounter){
+		bassAnimationSwitchCounter = 0;
 	}
 }
 

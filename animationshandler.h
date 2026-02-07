@@ -23,6 +23,12 @@ __VA_ARGS__,\
 ANIM_END\
 }
 
+#define DEFINE_AUDIO_LINK_BASS_ANIM(...) \
+{\
+__VA_ARGS__,\
+AUDIO_LINK_ANIM_END\
+}
+
 enum class AnimationDirection: uint8_t{
     FORWARD,
     BACKWARD,
@@ -82,11 +88,20 @@ struct AnimationDef{
 
 inline constexpr const AnimationDef ANIM_END(LedPosition::NUM_OF_ALL_LEDS, AnimationDirection::FORWARD, SequentialAnimationStepSpan(nullptr, nullptr));
 
+struct AudioLinkBassAnimation{
+	const AnimationDef* bassAnimation;
+	const AnimationDef* repeatingBassAnimations;
+	bool isValid() const {
+		return bassAnimation != nullptr && bassAnimation != nullptr;
+	}
+};
+
+inline constexpr const AudioLinkBassAnimation AUDIO_LINK_ANIM_END = {.bassAnimation = nullptr, .repeatingBassAnimations = nullptr};
 
 extern void initAnimations();
 extern void handleAnimations();
 extern void setAnimation(const AnimationDef* newAnimation, bool runOnce = false);
-extern void setAudioLink(const AnimationDef* bassAnimation, const AnimationDef* repeatBassAnimation, const AnimationDef* idleAnimation, uint8_t earlyRepeatTriggerCount);
+extern void setAudioLink(const AnimationDef* idleAnimation, uint8_t earlyRepeatTriggerCount, const AudioLinkBassAnimation* newBassAnimations);
 
 extern const AnimationDef audioLinkFeature[];
 
