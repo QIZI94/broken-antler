@@ -5,8 +5,8 @@
 
 using InstanceSequence_t = uint8_t;
 struct SequentialValue{
-	uint16_t value;
 	InstanceSequence_t instanceSequenceNumber;
+	uint16_t value;
 };
 
 struct EPEntry{
@@ -25,7 +25,7 @@ static const EPEntry* const eepromInvalidAddress = (const EPEntry*)E2END;
 
 // variables
 static const EPEntry* lastLoadedInstancePtr = eepromInvalidAddress;
-static EPEntry lastLoadedInstance = {.seqVal = {.value = 0, .instanceSequenceNumber = 0}, .crc = 0};
+static EPEntry lastLoadedInstance = {.seqVal = {.instanceSequenceNumber = 0, .value = 0}, .crc = 0};
 
 // static functions declarations
 static uint16_t crc16(const uint8_t* data, size_t len);
@@ -45,7 +45,7 @@ void initEEPROM(){
 
 	//storeToEEPROM(85);
 	
-/*
+	
 	Serial.print('(');
 	Serial.print((int)lastLoadedInstancePtr);
 	Serial.print(')');
@@ -56,6 +56,7 @@ void initEEPROM(){
 	Serial.print(F(" CRC: "));
 	Serial.println(lastLoadedInstance.crc);
 	Serial.println((int)lastLoadedInstancePtr);
+	Serial.println();
 
 	for(const EPEntry* it = eepromBegin; it != eepromEnd; ++it){
 		EPEntry readEntry;
@@ -69,7 +70,7 @@ void initEEPROM(){
 		Serial.print(readEntry.seqVal.value);
 		Serial.print(F(" CRC: "));
 		Serial.println(readEntry.crc);
-	}*/
+	}
 
 }
 
