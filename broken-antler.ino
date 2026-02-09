@@ -25,7 +25,6 @@
 #include <Adafruit_SSD1306.h>
 #include "adcsampler.h"
 #include "audiosampler.h"
-#include "rtc.h"
 #include "SchedPWM_ATmega328P.h"
 #include "SchedPWM.h"
 #include "eepromstorage.h"
@@ -84,7 +83,6 @@ void setup()
 	initAnimationsSwitcher();
 	initTimers();
   	initAnimations();
-	initRTC();
 
 	/*FixedForwardList<10, int> list;
 	using Node = FixedForwardList<10, int>::Node;
@@ -414,6 +412,7 @@ void loop()
  //delay(1);
   handleAnimations();
   handleAnimationsPersistentStorage();
+
   //Serial.println(testTimeTook);
   //delay(2);
   //SPWM_ATmega328P::SchedPWM_TIMER2.dimming.process<1>(SPWM_ATmega328P::SchedPWM_TIMER2);

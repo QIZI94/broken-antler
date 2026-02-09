@@ -8,5 +8,7 @@ using TimedExecution1ms = TimedExecution<StaticTimer1ms>;
 
 extern void initTimers();
 
+extern void setRTC(uint32_t unixTime);
+extern uint32_t rtcNow();
 
 #endif
