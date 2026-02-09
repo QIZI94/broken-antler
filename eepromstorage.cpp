@@ -45,7 +45,7 @@ void initEEPROM(){
 
 	//storeToEEPROM(85);
 	
-	
+	#ifdef DEBUG_EEPROM_STORAGE
 	Serial.print('(');
 	Serial.print((int)lastLoadedInstancePtr);
 	Serial.print(')');
@@ -71,6 +71,7 @@ void initEEPROM(){
 		Serial.print(F(" CRC: "));
 		Serial.println(readEntry.crc);
 	}
+	#endif
 
 }
 
