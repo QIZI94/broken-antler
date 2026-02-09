@@ -3,6 +3,7 @@
 #include "animationshandler.h"
 #include "buttonhandler.h"
 #include "timer.h"
+#include "eepromstorage.h"
 
 
 static const PROGMEM AnimationStep breathingAnimSteps[] = {
@@ -530,6 +531,7 @@ static const AnimationDef* animationList[] = {
 	turnOffLedsAnimation
 
 };
+constexpr size_t animationListLength = LENGTH_OF_CONST_ARRAY(animationList);
 
 static const PROGMEM AudioLinkBassAnimation audioLinkAnimations[] = DEFINE_AUDIO_LINK_BASS_ANIM(
 	AudioLinkBassAnimation{.bassAnimation = bassAnimation, .repeatingBassAnimations = repeatedBassAnimation},
@@ -551,13 +553,18 @@ union LastAnimationState {
 	uint16_t value;
 };
 
-constexpr size_t animationListLength = LENGTH_OF_CONST_ARRAY(animationList);
+
+constexpr uint16_t storeTime = 7000;
 
 static TimedExecution1ms timedPressTimer;
 volatile static size_t selectionIndex = 0;
-volatile static bool eyesOn = false;
 volatile static bool longPressed = false;
 volatile static bool timedPress = false;
+
+volatile LastAnimationState lastAnimationState{0};
+volatile bool enableStoreTimer = false;
+static StaticTimer1ms lastAnimationStoreTimer;
+
 
 uint8_t lastEyesBlueBrightness = 0;
 uint8_t lastEyesRedBrightness = 0;
@@ -572,9 +579,12 @@ static constexpr uint8_t eyesBrightnessLevelsLength = LENGTH_OF_CONST_ARRAY(eyes
 const LedBrightness* lastEyesBrightnessPtr = &eyesBrightnessLevels[0];
 
 void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
-
+	bool startStoreTimer = false;
 	if(buttonEvent == ButtonEvent::RELEASED && !longPressed && !timedPress){
 		setAnimation(animationList[selectionIndex]);
+		lastAnimationState.selectionIndex = selectionIndex;
+		lastAnimationState.audioLinkOn = 0;
+		startStoreTimer = true;
 		selectionIndex++;
 		if(animationListLength <= selectionIndex){
 			selectionIndex = 0;
@@ -586,6 +596,8 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 	else if(buttonEvent == ButtonEvent::LONG_PRESSED){
 		longPressed = true;
 		setAudioLink(idleFlow, 0, audioLinkAnimations);
+		lastAnimationState.audioLinkOn = 1;
+		startStoreTimer = true;
 	}
 	if(buttonEvent == ButtonEvent::PRESSED){
 		timedPressTimer.setup(
@@ -615,10 +627,18 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 
 		analogWrite(LED_Eye.blue.pin, lastEyesBrightnessPtr->blue);
 		analogWrite(LED_Eye.red.pin, lastEyesBrightnessPtr->red);
+		lastAnimationState.eyesBrightness = lastEyesBrightnessPtr - (&eyesBrightnessLevels[0]);
+		startStoreTimer = true;
 	}
 	else{
 		timedPress = false;
 		timedPressTimer.disable();
+	}
+
+
+	if(startStoreTimer){
+		enableStoreTimer = true;
+		lastAnimationStoreTimer.restart(storeTime);
 	}
 
 	/*switch(state){
@@ -640,15 +660,57 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 
 
 void initAnimationsSwitcher(){
-	//setAnimation(dmbBeatAnimation);
-	setAudioLink(idleFlowColorRotation, 0, audioLinkAnimations);
+	//setAnimation(idleFlowColorRotation);
+	//(idleFlowColorRotation, 0, audioLinkAnimations);
+
+	/*LastAnimationState tmp;
+	tmp.audioLinkOn = 1;
+	tmp.eyesBrightness = 0;
+	tmp.selectionIndex = 2;
+	storeToEEPROM(tmp.value);*/
+	
+	if(!loadFromEEPROM(lastAnimationState.value)){
+		Serial.println(F("EEPROM Failed"));
+		lastAnimationState.value = 0;
+	}
+
+	if(lastAnimationState.audioLinkOn == 1){
+		setAudioLink(idleFlow, 0, audioLinkAnimations);
+	}
+	else {
+		selectionIndex = lastAnimationState.selectionIndex;
+		setAnimation(animationList[selectionIndex]);
+		++selectionIndex;
+		if(animationListLength <= selectionIndex){
+			selectionIndex = 0;
+		}
+	}
+
+	lastEyesBrightnessPtr = &eyesBrightnessLevels[lastAnimationState.eyesBrightness];
+
+	/*Serial.println(lastAnimationState.audioLinkOn);
+	Serial.println(lastAnimationState.eyesBrightness);
+	Serial.println(lastAnimationState.selectionIndex);*/
+
+
+
 	setButtonHandlerFunc(buttonSwitchAnimationHandler);
 
 
 
 	analogWrite(LED_Eye.blue.pin, lastEyesBrightnessPtr->blue);
 	analogWrite(LED_Eye.red.pin, lastEyesBrightnessPtr->red);
+}
 
+void handleAnimationsPersistentStorage(){
+	if(enableStoreTimer == true && lastAnimationStoreTimer.isDown()){
+		if(!storeToEEPROM(lastAnimationState.value)){
+			Serial.print(F("Failed to "));
+		}
 
+		Serial.println(F("store EEPROM animation state"));
+		
+		enableStoreTimer = false;
+	}
 }
 

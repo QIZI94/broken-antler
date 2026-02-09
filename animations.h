@@ -2,6 +2,6 @@
 #define ANIMATIONS_H
 
 void initAnimationsSwitcher();
-
+void handleAnimationsPersistentStorage();
 
 #endif

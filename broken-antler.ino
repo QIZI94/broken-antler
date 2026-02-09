@@ -28,6 +28,7 @@
 #include "rtc.h"
 #include "SchedPWM_ATmega328P.h"
 #include "SchedPWM.h"
+#include "eepromstorage.h"
 
 #include "panic.h"
 #define FIXED_FORWARD_LIST_TRACEBACK_ENTRY \
@@ -72,13 +73,13 @@ void setup()
 {
 	Serial.begin(115200);
 	Serial.println("Begining initialization");
-
+	initEEPROM();
 	initSamplerADC();
 
 	initButtonHandler(A6);
 	buttonHandlerTimer.setup(timedButtonHandler, BUTTON_HANDLER_SAMPLING_TIME_MS);
 	
-
+	
 	//enable two after done with sched pwm
 	initAnimationsSwitcher();
 	initTimers();
@@ -412,6 +413,7 @@ void loop()
  //debugAudioSampler();
  //delay(1);
   handleAnimations();
+  handleAnimationsPersistentStorage();
   //Serial.println(testTimeTook);
   //delay(2);
   //SPWM_ATmega328P::SchedPWM_TIMER2.dimming.process<1>(SPWM_ATmega328P::SchedPWM_TIMER2);
