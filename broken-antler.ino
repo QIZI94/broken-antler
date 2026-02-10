@@ -74,6 +74,7 @@ void setup()
 	Serial.println("Begining initialization");
 	initEEPROM();
 	initSamplerADC();
+	initTimers();
 
 	initButtonHandler(A6);
 	buttonHandlerTimer.setup(timedButtonHandler, BUTTON_HANDLER_SAMPLING_TIME_MS);
@@ -81,7 +82,6 @@ void setup()
 	
 	//enable two after done with sched pwm
 	initAnimationsSwitcher();
-	initTimers();
   	initAnimations();
 
 	/*FixedForwardList<10, int> list;

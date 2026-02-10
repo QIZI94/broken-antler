@@ -7,6 +7,7 @@ static constexpr uint8_t TIMER_COMPARE_1MS = 244;
 
 volatile static uint32_t rtcRaw = 0;
 
+// triggers roughly 1 ms (1024 us) at overflow
 ISR(TIMER0_COMPB_vect) {
 	TimedExecution1ms::StaticTimerBase::tickAllTimers();
   	TimedExecution1ms::executeAllTimedExecutions();
@@ -16,8 +17,8 @@ ISR(TIMER0_COMPB_vect) {
 void initTimers(){
 	// timer0
 #ifdef TIMSK0
-	OCR0B = TIMER_COMPARE_1MS;               // triggers roughly 1 ms before overflow
-  	TIMSK0 |= (1 << OCIE0B);   // enable Compare B interrupt
+	//OCR0B = TIMER_COMPARE_1MS;               
+  	TIMSK0 |= (1 << OCIE0B);
 #endif
 	//Timer1.initialize(1000);
 	//Timer1.attachInterrupt(timerOneIsr);
