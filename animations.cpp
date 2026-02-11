@@ -478,9 +478,9 @@ static const PROGMEM AnimationDef repeatedColorRotateBassAnimation2[] = DEFINE_A
 
 static const PROGMEM AnimationStep slowFlowColorRotationAnimSteps[] = {
 
-    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(50,90), .duration = 1400},
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(70,70), .duration = 1400},
-	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(90,50), .duration = 1400},
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(20,70), .duration = 1400},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(40,40), .duration = 1400},
+	AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(60,20), .duration = 1400},
 
     
 };
@@ -589,7 +589,11 @@ const LedBrightness eyesBrightnessLevels[] = {
 static constexpr uint8_t eyesBrightnessLevelsLength = LENGTH_OF_CONST_ARRAY(eyesBrightnessLevels);
 const LedBrightness* lastEyesBrightnessPtr = &eyesBrightnessLevels[0];
 
-void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
+static void startAudioLinkPreset(){
+	setAudioLink(idleFlowColorRotation, 0, audioLinkAnimations);
+}
+
+static void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 	bool startStoreTimer = false;
 	if(buttonEvent == ButtonEvent::RELEASED && !longPressed && !timedPress){
 		setAnimation(animationList[selectionIndex]);
@@ -606,7 +610,7 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 	}
 	else if(buttonEvent == ButtonEvent::LONG_PRESSED){
 		longPressed = true;
-		setAudioLink(idleFlow, 0, audioLinkAnimations);
+		startAudioLinkPreset();
 		animationStatePersistentStorage.audioLinkOn = 1;
 		startStoreTimer = true;
 	}
@@ -672,7 +676,7 @@ void initAnimationsSwitcher(){
 	}
 
 	if(animationStatePersistentStorage.audioLinkOn == 1){
-		setAudioLink(idleFlow, 0, audioLinkAnimations);
+		startAudioLinkPreset();
 	}
 	else {
 		selectionIndex = animationStatePersistentStorage.selectionIndex;
