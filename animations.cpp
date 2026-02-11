@@ -544,11 +544,21 @@ static const PROGMEM AudioLinkBassAnimation audioLinkAnimations[] = DEFINE_AUDIO
 );
 
 
-union LastAnimationState {
+union AnimationStatePersistentStorage {
+	static constexpr uint8_t AUDIO_LINK_ON_BIT_COUNT = 1;
+	static constexpr uint8_t EYES_BRIGHTNESS_BIT_COUNT = 3;
+	static constexpr uint8_t SELECTION_INDEX_BIT_COUNT = 4;
+
+	static constexpr uint64_t MaxValueFromBitCount(uint8_t bitCount){
+		return (0x01 << bitCount) - 1;
+	}
+	static constexpr int64_t MaxValueFromBitCount(int8_t bitCount){
+		return (0x01 << bitCount) - 1;
+	}
 	struct{
-		uint16_t audioLinkOn : 1;
-		uint16_t eyesBrightness : 3;
-		uint16_t selectionIndex: 4;
+		uint16_t audioLinkOn	: AUDIO_LINK_ON_BIT_COUNT;
+		uint16_t eyesBrightness	: EYES_BRIGHTNESS_BIT_COUNT;
+		uint16_t selectionIndex	: SELECTION_INDEX_BIT_COUNT;
 	};
 	uint16_t value;
 };
@@ -561,7 +571,7 @@ volatile static size_t selectionIndex = 0;
 volatile static bool longPressed = false;
 volatile static bool timedPress = false;
 
-volatile LastAnimationState lastAnimationState{0};
+volatile AnimationStatePersistentStorage animationStatePersistentStorage{0};
 volatile bool enableStoreTimer = false;
 static StaticTimer1ms lastAnimationStoreTimer;
 
@@ -572,6 +582,7 @@ uint8_t lastEyesRedBrightness = 0;
 
 const LedBrightness eyesBrightnessLevels[] = {
 	{.blue = 0, .red = 0},
+	{.blue = 1, .red = 10},
 	{.blue = 5, .red = 25},
 	{.blue = 50, .red = 200}
 };
@@ -582,8 +593,8 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 	bool startStoreTimer = false;
 	if(buttonEvent == ButtonEvent::RELEASED && !longPressed && !timedPress){
 		setAnimation(animationList[selectionIndex]);
-		lastAnimationState.selectionIndex = selectionIndex;
-		lastAnimationState.audioLinkOn = 0;
+		animationStatePersistentStorage.selectionIndex = selectionIndex;
+		animationStatePersistentStorage.audioLinkOn = 0;
 		startStoreTimer = true;
 		selectionIndex++;
 		if(animationListLength <= selectionIndex){
@@ -596,7 +607,7 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 	else if(buttonEvent == ButtonEvent::LONG_PRESSED){
 		longPressed = true;
 		setAudioLink(idleFlow, 0, audioLinkAnimations);
-		lastAnimationState.audioLinkOn = 1;
+		animationStatePersistentStorage.audioLinkOn = 1;
 		startStoreTimer = true;
 	}
 	if(buttonEvent == ButtonEvent::PRESSED){
@@ -627,7 +638,7 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 
 		analogWrite(LED_Eye.blue.pin, lastEyesBrightnessPtr->blue);
 		analogWrite(LED_Eye.red.pin, lastEyesBrightnessPtr->red);
-		lastAnimationState.eyesBrightness = lastEyesBrightnessPtr - (&eyesBrightnessLevels[0]);
+		animationStatePersistentStorage.eyesBrightness = lastEyesBrightnessPtr - (&eyesBrightnessLevels[0]);
 		startStoreTimer = true;
 	}
 	else{
@@ -640,45 +651,31 @@ void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 		enableStoreTimer = true;
 		lastAnimationStoreTimer.restart(storeTime);
 	}
-
-	/*switch(state){
-		
-			case ButtonState::PRESSED:
-				Serial.println("ButtonState::PRESSED");
-				
-				break;
-			case ButtonState::RELEASED:
-				
-		
-				Serial.println("ButtonState::RELEASED");
-				break;
-			case ButtonState::LONG_PRESS:
-				Serial.println("ButtonState::LONG_PRESS");
-				break;
-		}*/
 }
 
-
 void initAnimationsSwitcher(){
-	//setAnimation(idleFlowColorRotation);
-	//(idleFlowColorRotation, 0, audioLinkAnimations);
+	// Perform compile time check for max values supported by EEPROM storage structure
+	static_assert(1 <= AnimationStatePersistentStorage::MaxValueFromBitCount(AnimationStatePersistentStorage::AUDIO_LINK_ON_BIT_COUNT),
+		"audioLinkOn is not 'bool'"
+	);
+	static_assert((LENGTH_OF_CONST_ARRAY(eyesBrightnessLevels) - 1) <= AnimationStatePersistentStorage::MaxValueFromBitCount(AnimationStatePersistentStorage::EYES_BRIGHTNESS_BIT_COUNT),
+		"eyesBrightness levels selection are over maximum EEPROM storage"
+	);
+	static_assert((LENGTH_OF_CONST_ARRAY(animationList) - 1) <= AnimationStatePersistentStorage::MaxValueFromBitCount(AnimationStatePersistentStorage::SELECTION_INDEX_BIT_COUNT),
+		"Animations selectionIndex is over maximum EEPROM storage"
+	);
 
-	/*LastAnimationState tmp;
-	tmp.audioLinkOn = 1;
-	tmp.eyesBrightness = 0;
-	tmp.selectionIndex = 2;
-	storeToEEPROM(tmp.value);*/
 	
-	if(!loadFromEEPROM(lastAnimationState.value)){
+	if(!loadFromEEPROM(animationStatePersistentStorage.value)){
 		Serial.println(F("EEPROM Failed"));
-		lastAnimationState.value = 0;
+		animationStatePersistentStorage.value = 0;
 	}
 
-	if(lastAnimationState.audioLinkOn == 1){
+	if(animationStatePersistentStorage.audioLinkOn == 1){
 		setAudioLink(idleFlow, 0, audioLinkAnimations);
 	}
 	else {
-		selectionIndex = lastAnimationState.selectionIndex;
+		selectionIndex = animationStatePersistentStorage.selectionIndex;
 		setAnimation(animationList[selectionIndex]);
 		++selectionIndex;
 		if(animationListLength <= selectionIndex){
@@ -686,17 +683,13 @@ void initAnimationsSwitcher(){
 		}
 	}
 
-	lastEyesBrightnessPtr = &eyesBrightnessLevels[lastAnimationState.eyesBrightness];
+	lastEyesBrightnessPtr = &eyesBrightnessLevels[animationStatePersistentStorage.eyesBrightness];
 
 	/*Serial.println(lastAnimationState.audioLinkOn);
 	Serial.println(lastAnimationState.eyesBrightness);
 	Serial.println(lastAnimationState.selectionIndex);*/
 
-
-
 	setButtonHandlerFunc(buttonSwitchAnimationHandler);
-
-
 
 	analogWrite(LED_Eye.blue.pin, lastEyesBrightnessPtr->blue);
 	analogWrite(LED_Eye.red.pin, lastEyesBrightnessPtr->red);
@@ -704,7 +697,7 @@ void initAnimationsSwitcher(){
 
 void handleAnimationsPersistentStorage(){
 	if(enableStoreTimer == true && lastAnimationStoreTimer.isDown()){
-		if(!storeToEEPROM(lastAnimationState.value)){
+		if(!storeToEEPROM(animationStatePersistentStorage.value)){
 			Serial.print(F("Failed to "));
 		}
 
