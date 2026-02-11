@@ -71,7 +71,7 @@ volatile static uint32_t testTimeTook = 0;
 void setup()
 {
 	Serial.begin(115200);
-	Serial.println("Begining initialization");
+	Serial.println(F("Begining initialization"));
 	initEEPROM();
 	initSamplerADC();
 	initTimers();
