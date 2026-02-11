@@ -4,18 +4,21 @@
 #define N_SAMPLES 20
 volatile uint16_t adcAverageBufferA7[N_SAMPLES];
 volatile uint16_t lastReadingADCA7 = 0;
+volatile uint8_t lastReadingADCA7_8bit = 0;
 volatile uint16_t lastReadingADCA6 = 0;
+volatile uint8_t lastReadingADCA6_8bit = 0;
 volatile uint16_t adcAverageBufferIndexA7 = 0;
 volatile uint16_t adcAverageSumA7 = 0;
 volatile bool discardAfterChannelChange = false;
 ISR(ADC_vect) {
-#ifdef ADC
+
 	if(discardAfterChannelChange){
 		discardAfterChannelChange = false;
 		return;
 	}
 	if((ADMUX & 0x0F) == 6){
 		lastReadingADCA6 = ADC;
+		lastReadingADCA6_8bit = lastReadingADCA6 >> 2;
 		ADMUX = (ADMUX & 0xF0) | 7;
 		discardAfterChannelChange = true;
 		return;
@@ -23,7 +26,7 @@ ISR(ADC_vect) {
 
 
     lastReadingADCA7 = ADC;
-#endif
+	lastReadingADCA7_8bit = lastReadingADCA7 >> 2;
 	// remove oldest
 	adcAverageSumA7 -= adcAverageBufferA7[adcAverageBufferIndexA7];   
     adcAverageBufferA7[adcAverageBufferIndexA7] = lastReadingADCA7;
@@ -33,10 +36,8 @@ ISR(ADC_vect) {
 	adcAverageBufferIndexA7++;          // add newest
     if(adcAverageBufferIndexA7 >= N_SAMPLES){
 		adcAverageBufferIndexA7 = 0;
-#ifdef ADC	
 		ADMUX = (ADMUX & 0xF0) | 6;
 		discardAfterChannelChange = true;
-#endif
 	}
 	//buf_idx = (buf_idx + 1) % N_SAMPLES;
 	
@@ -63,6 +64,16 @@ uint16_t nonBlockingAnalogRead(uint8_t pin){
 			return lastReadingADCA7;
 		case A6:
 			return lastReadingADCA6;		
+	}
+	return 0;
+}
+
+uint8_t nonBlockingAnalogRead8Bit(uint8_t pin){
+	switch (pin){
+		case A7:
+			return lastReadingADCA7_8bit;
+		case A6:
+			return lastReadingADCA6_8bit;		
 	}
 	return 0;
 }

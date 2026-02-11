@@ -1,17 +1,4 @@
 
-/*#pragma GCC optimize( \
-  "O3", "inline-functions", "inline-functions-called-once", \
-  "unswitch-loops", "peel-loops", "predictive-commoning", \
-  "gcse-after-reload", "tree-loop-distribute-patterns", \
-  "tree-slp-vectorize", "tree-loop-vectorize", "rename-registers", \
-  "reorder-blocks", "reorder-blocks-and-partition", \
-  "reorder-functions", "split-wide-types", "cprop-registers", \
-  "ipa-cp-clone", "ipa-reference", "ipa-pure-const", "ipa-profile", "ipa-pta", \
-  "tree-partial-pre", "tree-tail-merge", "ivopts", "web", \
-  "cse-follow-jumps", "cse-skip-blocks", "reorder-blocks-algorithm=simple", \
-  "split-paths", "vect-cost-model=dynamic", \
-  "align-functions=2", "align-jumps=2", "align-loops=2", "inline-all-stringops" \
-)*/
 #pragma GCC optimize("O3", "inline-functions", "tree-vectorize", "unroll-loops")
 #include <Arduino.h>
 
@@ -28,10 +15,10 @@ enum InternalButtonEvent : uint8_t {
 	NOT_RELEASED = 0x20
 };
 
-void emptyButtonHandler(ButtonEvent){}
+constexpr uint8_t BUTTON_PRESS_THRESHOLD = 200;
 
 TimedExecution1ms buttonPressTimer;
-volatile ButtonHandlerFunc buttonHandlerFuncPtr = emptyButtonHandler;
+volatile ButtonHandlerFunc buttonHandlerFuncPtr = [](ButtonEvent){};
 
 
 
@@ -41,7 +28,7 @@ volatile uint8_t internalButtonPin = 0xFF;
 
 
 void buttonPress(TimedExecution1ms& timer){
-	if(nonBlockingAnalogRead(internalButtonPin) > 800){
+	if(nonBlockingAnalogRead8Bit(internalButtonPin) > BUTTON_PRESS_THRESHOLD){
 		buttonEventMask = ButtonEvent::PRESSED;
 	}
 }
@@ -62,9 +49,9 @@ void setButtonHandlerFunc(ButtonHandlerFunc buttonHandler){
 }
 
 void handleButtonEvents(){
-	
-	int analogButtonRead = nonBlockingAnalogRead(internalButtonPin);//analogRead(internalButtonPin);
-	if(analogButtonRead > 800){
+	uint8_t analogButtonRead = nonBlockingAnalogRead8Bit(internalButtonPin);//analogRead(internalButtonPin);
+
+	if(analogButtonRead > BUTTON_PRESS_THRESHOLD){
 		constexpr uint8_t buttonPressedMask =  ButtonEvent::PRESSED |  ButtonEvent::LONG_PRESSED | InternalButtonEvent::PRESSED_DEBOUNCE | InternalButtonEvent::NOT_RELEASED;
 		if(buttonPressTimer.isEnabled() == false && (buttonEventMask & buttonPressedMask) == 0){
       		buttonPressTimer.setup(buttonPress, 20);

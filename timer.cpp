@@ -9,6 +9,10 @@ volatile static uint32_t rtcRaw = 0;
 
 // triggers roughly 1 ms (1024 us) at overflow
 ISR(TIMER0_COMPB_vect) {
+	// enable other interrupts to nest
+	// in order to give this interrupt used for software timers lower priority,
+	// than more time sensitive ones like Software PWM
+	interrupts();
 	TimedExecution1ms::StaticTimerBase::tickAllTimers();
   	TimedExecution1ms::executeAllTimedExecutions();
 	++rtcRaw;

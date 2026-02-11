@@ -12,7 +12,7 @@
 static void emptyAudioInputHandler(uint16_t avgSample, uint16_t avgOverTime, uint16_t baseline){}
 
 volatile static AudioInputHandler audioInputHandler = emptyAudioInputHandler;
-static uint16_t lastAudioSample = 0;
+
 static uint16_t averagedReading = 0;
 static uint16_t baselineSum = 0;
 static uint16_t baselineAvg = 0;
@@ -26,63 +26,16 @@ static uint16_t audioSamplesAvg = 0;
 
 
 
-/*
-ISR(ADC_vect) {
-#ifdef ADC
-    lastAudioSample = ADC;
-#endif
-	// remove oldest
-	running_sum -= adc_buf[buf_idx];   
-    adc_buf[buf_idx] = lastAudioSample;
-    running_sum += lastAudioSample;  
-	//Serial.println(adc_buf[buf_idx]);
-	//Serial.println(buf_idx);
-	buf_idx++;          // add newest
-    if(buf_idx >= N_SAMPLES){
-		buf_idx = 0;
-	}
-	//buf_idx = (buf_idx + 1) % N_SAMPLES;
-	
-}
-
-void adc_init_freerun() {
-	#ifdef ADC
-	ADMUX = (1 << REFS0) | 7;
-
-	// Enable ADC and set prescaler
-	ADCSRA = (1 << ADEN) |             // Enable ADC
-			(1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0); // Prescaler 128
-
-	ADCSRB = 0;                        // Free-running mode
-	ADCSRA |= (1 << ADATE) | (1 << ADIE); // Auto-trigger + interrupt enable
-
-	ADCSRA |= (1 << ADSC);   
-	#endif          // Start first conversion
-    // Discard first conversion (common AVR quirk)
-  //  while (ADCSRA & (1 << ADSC)); // wait for first conversion
-   // uint16_t dummy = ADC;         // discard
-
-}*/
-
-
 void initAudioSampler(uint8_t analogPin, uint8_t baselineRate){
 	internalAudioAnalogPin = analogPin;
 	avgBaselineRate = baselineRate;
-
-/*	adc_init_freerun();
-#ifdef ADCSRA
-	//ADCSRA = (ADCSRA & 0xf8) | 0x04;
-#endif
-*/
 }
 
 void setAudioSampleHandler(AudioInputHandler audioHandler){
 	audioInputHandler = audioHandler; 
 }
 
-uint16_t getLastRawAudioSample(){
-	return lastAudioSample;
-}
+
 
 
 
@@ -90,7 +43,9 @@ void handleAudioSampling(){
 	
 	//averageRawSignal();
 	//lastAudioSample = nonBlockingAnalogRead(internalAudioAnalogPin);
+	noInterrupts();
 	averagedReading = averagedAnalogRead(internalAudioAnalogPin);
+	interrupts();
 	//delayMicroseconds(500);
 	
 	/*uint16_t averagedReading = 0;
