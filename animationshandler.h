@@ -66,6 +66,10 @@ public:
     const AnimationStep* rend() const {
         return m_begin - 1;
     }
+
+	bool empty() const {
+		return m_begin == nullptr || m_end == nullptr;
+	}
 private:
 	const AnimationStep* m_begin;
     const AnimationStep* m_end;

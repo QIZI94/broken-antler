@@ -709,7 +709,13 @@ class DimmingPWM {
 		return paused;
 	}
 
+	void clear(){
+		currentDimmingState = dimmingStates.end();
+		previousDimmingState = dimmingStates.beforeBegin();
+		dimmingStates.clear();
+	}
 
+	private:
 	DimmingStateList dimmingStates;
 	volatile Node* currentDimmingState = dimmingStates.begin();
 	volatile Node* previousDimmingState = dimmingStates.beforeBegin();

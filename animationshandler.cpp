@@ -8,8 +8,6 @@
 
 #include "ledpwm.h"
 
-#define SOFTPWM_FREQ 120
-#define SOFTPWM_OCR (F_CPU/(8UL*256UL*SOFTPWM_FREQ))
 
 #define PROGMEM_READ_STRUCTURE(p_dst, p_src) do { memcpy_P(p_dst, p_src, sizeof(*p_dst));} while (0)
 
@@ -67,30 +65,12 @@ static LedAnimationStateTimer ledAnimationTimers[size_t(LedPosition::NUM_OF_ALL_
 static TimedExecution1ms audioLinkSamplerTimer;
 static uint8_t animationSpeedShift = 0;
 static volatile uint8_t activeAnimationsTimersCount = 0;
-volatile static uint8_t lastActiveIndex = 0;
 
-const AnimationDef audioLinkFeature[] = DEFINE_ANIMATION(
-	ALL_LEDS_ANIMATION_HELPER(AnimationDirection::FORWARD, SequentialAnimationStepSpan(nullptr, nullptr))
-);
+
 
 extern void audioLinkHandler(uint16_t rawAudioInput);
 
-static void setAnimationLed(LedDef led, LedBrightness brightness, bool immediate = false){
-	uint8_t blueBrightness = led.blue.convertBrightness(brightness.blue);
-	uint8_t redBrightness = led.red.convertBrightness(brightness.red);
-	
-	
-	//SoftPWMSet(led.blue.pin, blueBrightness, immediate ? 1 : 0);
-	//SoftPWMSet(led.red.pin, redBrightness, immediate ? 1 : 0);
-}
-
 inline bool isAnimationRunning(){
-	/*for(const LedAnimationStateTimer& animTimer : ledAnimationTimers){
-		if(animTimer.isEnabled()){
-			return true;
-		}
-	}
-	return false;*/
 	return activeAnimationsTimersCount != 0;
 }
 
@@ -203,17 +183,22 @@ static void startAnimation(const AnimationDef* animation, bool runOnce = false){
 		size_t animationIndex = 0;
 
 		AnimationDef loadedAnimDef(LedPosition::LEFT_BACK, AnimationDirection::FORWARD, SequentialAnimationStepSpan(nullptr, nullptr));;
-		
-		lastActiveIndex = ledsPWM.getActiveIndex();
+
 		while(true){
 			PROGMEM_READ_STRUCTURE(&loadedAnimDef, animationIt);
 			if(!loadedAnimDef.isValid()){
 				break;
 			}
-			const SequentialAnimationStepSpan* steps = &loadedAnimDef.stepSpan;
+			const SequentialAnimationStepSpan& steps = loadedAnimDef.stepSpan;
+			
 
 			LedAnimationStateTimer& animStateTimer = ledAnimationTimers[animationIndex];
 			animStateTimer.lastBrightness = LedBrightness::from(0);
+
+			if(steps.empty()){
+				continue;
+			}
+
 			animStateTimer.assignAnimation(
 				animationIt,
 				loadedAnimDef.direction,
@@ -224,12 +209,12 @@ static void startAnimation(const AnimationDef* animation, bool runOnce = false){
 				case AnimationDirection::BIDIRECTIONAL_FORWARD:
 				case AnimationDirection::FORWARD:
 
-					animStateTimer.current(steps->begin());
+					animStateTimer.current(steps.begin());
 					break;
 				
 				case AnimationDirection::BIDIRECTIONAL_BACKWARD:
 				case AnimationDirection::BACKWARD:
-					animStateTimer.current(steps->rbegin());
+					animStateTimer.current(steps.rbegin());
 					break;
 				
 			}
@@ -243,7 +228,7 @@ static void startAnimation(const AnimationDef* animation, bool runOnce = false){
 			
 		}
 	}
-	ledsDimming.dimmingStates.clear();
+	ledsDimming.clear();
 	for(LedDef led : LED_AllLeds){
 		//SoftPWMSetFadeTime(led.blue.pin, 0, 0);
 		//SoftPWMSetFadeTime(led.red.pin, 0, 0);
@@ -275,7 +260,10 @@ static void changeAnimation(const AnimationDef* animation, bool runOnce = false,
 			if(!loadedAnimDef.isValid()){
 				break;
 			}
-			const SequentialAnimationStepSpan* steps = &loadedAnimDef.stepSpan;
+			const SequentialAnimationStepSpan& steps = loadedAnimDef.stepSpan;
+			if(steps.empty()){
+				continue;
+			}
 			const LedDef& currentLed = LED_AllLeds[uint8_t(loadedAnimDef.ledPosition)];
 			currentLed.blue.pin;
 			LedAnimationStateTimer& animStateTimer = ledAnimationTimers[animationIndex];
@@ -313,12 +301,12 @@ static void changeAnimation(const AnimationDef* animation, bool runOnce = false,
 				case AnimationDirection::BIDIRECTIONAL_FORWARD:
 				case AnimationDirection::FORWARD:
 
-					animStateTimer.current(steps->begin());
+					animStateTimer.current(steps.begin());
 					break;
 				
 				case AnimationDirection::BIDIRECTIONAL_BACKWARD:
 				case AnimationDirection::BACKWARD:
-					animStateTimer.current(steps->rbegin());
+					animStateTimer.current(steps.rbegin());
 					break;
 				
 			}
