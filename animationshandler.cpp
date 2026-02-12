@@ -12,7 +12,7 @@
 #define PROGMEM_READ_STRUCTURE(p_dst, p_src) do { memcpy_P(p_dst, p_src, sizeof(*p_dst));} while (0)
 
 #define TICKS_PROCESSING_SCALER (1)
-#define DURATION_TO_TICKS(duration) ((duration>>TICKS_PROCESSING_SCALER))
+#define DURATION_TO_TICKS(duration) (((duration)>>TICKS_PROCESSING_SCALER))
 
 enum class AnimationRunModeState : uint8_t {
 	RUN,
@@ -104,7 +104,10 @@ static void handleLedAnimation(TimedExecution1ms& timer){
 		uint8_t previousRedBrightness = processedAnimation.lastBrightness.red;
 		uint8_t blueBrightness = led.blue.convertBrightness(currentStep->brightness.blue);
 		uint8_t redBrightness = led.red.convertBrightness(currentStep->brightness.red);
-		uint16_t ticks = DURATION_TO_TICKS(duration);
+		//blueBrightness = blueBrightness < 2 ? blueBrightness : blueBrightness - DIMMING_PROCESSING_INTERVAL;
+		//redBrightness = redBrightness < 2 ? redBrightness : redBrightness - DIMMING_PROCESSING_INTERVAL;
+		
+		uint16_t ticks = DURATION_TO_TICKS(duration - (duration < DIMMING_PROCESSING_INTERVAL ? 0 : DIMMING_PROCESSING_INTERVAL));
 		ledsDimming.setDimming(led.red.pin, previousRedBrightness == 255 ? ledsPWM.computeBrightness(led.red.pin) : previousRedBrightness, redBrightness, ticks);
 		ledsDimming.setDimming(led.blue.pin,  previousBlueBrightness == 255 ? ledsPWM.computeBrightness(led.blue.pin) : previousBlueBrightness, blueBrightness, ticks);
 
@@ -168,7 +171,7 @@ static void handleLedAnimation(TimedExecution1ms& timer){
 				break;
 		}
 	}
-	timer.restart(duration + 4);
+	timer.restart(duration);
 }
 
 
