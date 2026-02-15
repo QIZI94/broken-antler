@@ -544,9 +544,33 @@ static const PROGMEM AudioLinkBassAnimation audioLinkAnimations[] = DEFINE_AUDIO
 );
 
 
+static const PROGMEM AnimationStep allBlueOn[] = {
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(50, 0), .duration = 0},
+	STEP_DELAY(1000)
+};
+
+static const PROGMEM AnimationDef audioLinkHighSensitivityIndicatorAnim[] = DEFINE_ANIMATION(
+	ALL_LEDS_ANIMATION_HELPER(AnimationDirection::FORWARD, MAKE_SPAN(allBlueOn))
+);
+
+static const PROGMEM AnimationStep allRedOn[] = {
+    AnimationStep{.brightness = PERCENTAGE_TO_BRIGHTNESS(0, 50), .duration = 0},
+	STEP_DELAY(1000)
+};
+
+static const PROGMEM AnimationDef audioLinkLowSensitivityIndicatorAnim[] = DEFINE_ANIMATION(
+	ALL_LEDS_ANIMATION_HELPER(AnimationDirection::FORWARD, MAKE_SPAN(allRedOn))
+);
+
+enum AudioLinkSensitivity : uint16_t{
+	DISABLED,
+	HIGH_SENSITIVITY,
+	LOW_SENSITIVITY,
+	SENSITIVITY_MODES_COUNT
+};
 union AnimationStatePersistentStorage {
-	static constexpr uint8_t AUDIO_LINK_ON_BIT_COUNT = 1;
-	static constexpr uint8_t EYES_BRIGHTNESS_BIT_COUNT = 3;
+	static constexpr uint8_t AUDIO_LINK_ON_BIT_COUNT = 2;
+	static constexpr uint8_t EYES_BRIGHTNESS_BIT_COUNT = 2;
 	static constexpr uint8_t SELECTION_INDEX_BIT_COUNT = 4;
 
 	static constexpr uint64_t MaxValueFromBitCount(uint8_t bitCount){
@@ -564,6 +588,7 @@ union AnimationStatePersistentStorage {
 };
 
 
+
 constexpr uint16_t storeTime = 7000;
 
 static TimedExecution1ms timedPressTimer;
@@ -576,21 +601,51 @@ volatile bool enableStoreTimer = false;
 static StaticTimer1ms lastAnimationStoreTimer;
 
 
-uint8_t lastEyesBlueBrightness = 0;
-uint8_t lastEyesRedBrightness = 0;
 
-
-const LedBrightness eyesBrightnessLevels[] = {
+const static LedBrightness eyesBrightnessLevels[] = {
 	{.blue = 0, .red = 0},
 	{.blue = 1, .red = 10},
 	{.blue = 5, .red = 25},
 	{.blue = 50, .red = 200}
 };
 static constexpr uint8_t eyesBrightnessLevelsLength = LENGTH_OF_CONST_ARRAY(eyesBrightnessLevels);
-const LedBrightness* lastEyesBrightnessPtr = &eyesBrightnessLevels[0];
+static const LedBrightness* lastEyesBrightnessPtr = &eyesBrightnessLevels[0];
 
-static void startAudioLinkPreset(){
-	setAudioLink(idleFlowColorRotation, 0, audioLinkAnimations);
+
+static void timedLateStartAudioLink(TimedExecution1ms&){
+	uint16_t bassVolumeThreshold;
+	switch (animationStatePersistentStorage.audioLinkOn)
+	{
+		case AudioLinkSensitivity::HIGH_SENSITIVITY:
+			bassVolumeThreshold = 30;
+			break;
+		case AudioLinkSensitivity::LOW_SENSITIVITY:
+			bassVolumeThreshold = 100;
+			break;
+		default:
+
+			break;
+	}
+
+	setAudioLink(idleFlowColorRotation, 0, audioLinkAnimations, bassVolumeThreshold);
+}
+
+static void startAudioLinkPreset(AudioLinkSensitivity bassVolumeMode){
+	uint16_t bassVolumeThreshold;
+	switch (bassVolumeMode)
+	{
+		case AudioLinkSensitivity::HIGH_SENSITIVITY:
+			setAnimation(audioLinkHighSensitivityIndicatorAnim);
+			break;
+		case AudioLinkSensitivity::LOW_SENSITIVITY:
+			setAnimation(audioLinkLowSensitivityIndicatorAnim);
+			break;
+		default:
+
+			break;
+	}
+	timedPressTimer.setup(timedLateStartAudioLink, 1000);
+	
 }
 
 static void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
@@ -598,20 +653,32 @@ static void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 	if(buttonEvent == ButtonEvent::RELEASED && !longPressed && !timedPress){
 		setAnimation(animationList[selectionIndex]);
 		animationStatePersistentStorage.selectionIndex = selectionIndex;
-		animationStatePersistentStorage.audioLinkOn = 0;
+		animationStatePersistentStorage.audioLinkOn = AudioLinkSensitivity::DISABLED;
 		startStoreTimer = true;
 		selectionIndex++;
 		if(animationListLength <= selectionIndex){
 			selectionIndex = 0;
 		}
 	}
+	// do nothing upon releasing button after LONG_PRESSED
 	else if(longPressed == true){
 		longPressed = false;
 	}
 	else if(buttonEvent == ButtonEvent::LONG_PRESSED){
 		longPressed = true;
-		startAudioLinkPreset();
-		animationStatePersistentStorage.audioLinkOn = 1;
+		
+		uint16_t currentAudioLinkSensitivity = animationStatePersistentStorage.audioLinkOn;
+		if(currentAudioLinkSensitivity != AudioLinkSensitivity::DISABLED){
+			if(AudioLinkSensitivity::SENSITIVITY_MODES_COUNT == ++currentAudioLinkSensitivity){
+				currentAudioLinkSensitivity = AudioLinkSensitivity::HIGH_SENSITIVITY;
+			}
+		}
+		else {
+			currentAudioLinkSensitivity = AudioLinkSensitivity::HIGH_SENSITIVITY;
+		}
+
+		startAudioLinkPreset(AudioLinkSensitivity(currentAudioLinkSensitivity));	
+		animationStatePersistentStorage.audioLinkOn = currentAudioLinkSensitivity;
 		startStoreTimer = true;
 	}
 	if(buttonEvent == ButtonEvent::PRESSED){
@@ -646,8 +713,11 @@ static void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 		startStoreTimer = true;
 	}
 	else{
+		
 		timedPress = false;
-		timedPressTimer.disable();
+		if(timedPressTimer.getExecFunction() != timedLateStartAudioLink){
+			timedPressTimer.disable();
+		}
 	}
 
 
@@ -659,8 +729,8 @@ static void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 
 void initAnimationsSwitcher(){
 	// Perform compile time check for max values supported by EEPROM storage structure
-	static_assert(1 <= AnimationStatePersistentStorage::MaxValueFromBitCount(AnimationStatePersistentStorage::AUDIO_LINK_ON_BIT_COUNT),
-		"audioLinkOn is not 'bool'"
+	static_assert(AudioLinkSensitivity::SENSITIVITY_MODES_COUNT <= AnimationStatePersistentStorage::MaxValueFromBitCount(AnimationStatePersistentStorage::AUDIO_LINK_ON_BIT_COUNT),
+		"amount of sensitivity modes are over maximum EEPROM storage'"
 	);
 	static_assert((LENGTH_OF_CONST_ARRAY(eyesBrightnessLevels) - 1) <= AnimationStatePersistentStorage::MaxValueFromBitCount(AnimationStatePersistentStorage::EYES_BRIGHTNESS_BIT_COUNT),
 		"eyesBrightness levels selection are over maximum EEPROM storage"
@@ -674,9 +744,9 @@ void initAnimationsSwitcher(){
 		Serial.println(F("EEPROM Failed"));
 		animationStatePersistentStorage.value = 0;
 	}
-
-	if(animationStatePersistentStorage.audioLinkOn == 1){
-		startAudioLinkPreset();
+	AudioLinkSensitivity loadedAudioLinkSensitivity = AudioLinkSensitivity(animationStatePersistentStorage.audioLinkOn);
+	if(loadedAudioLinkSensitivity != AudioLinkSensitivity::DISABLED){
+		startAudioLinkPreset(loadedAudioLinkSensitivity);
 	}
 	else {
 		selectionIndex = animationStatePersistentStorage.selectionIndex;

@@ -344,6 +344,7 @@ static void changeAnimation(const AnimationDef* animation, bool runOnce = false,
 
 static const AnimationDef* newSelectedAnimation = nullptr;
 static const AudioLinkBassAnimation* newBassAnimations = nullptr;
+static uint16_t newBassVolumeThreshold = 30;
 static uint8_t newEarlyRepeatTriggerCount = 0;
 static bool runOnlyOnce = false;
 
@@ -355,15 +356,17 @@ void setAnimation(const AnimationDef* newAnimation, bool runOnce){
 	runOnlyOnce = runOnce;
 }
 
-void setAudioLink(const AnimationDef* idleAnimation, uint8_t earlyRepeatTriggerCount, const AudioLinkBassAnimation* bassAnimations){
+void setAudioLink(const AnimationDef* idleAnimation, uint8_t earlyRepeatTriggerCount, const AudioLinkBassAnimation* bassAnimations, uint16_t bassVolumeThreshold){
 	newSelectedAnimation = idleAnimation;
 	newEarlyRepeatTriggerCount = earlyRepeatTriggerCount;
 	newBassAnimations = bassAnimations;
+	newBassVolumeThreshold = bassVolumeThreshold;
 }
 
 struct AudioLink{
 	const AnimationDef* idleAnimation;
 	const AudioLinkBassAnimation* bassAnimations;
+	uint16_t bassVolumeThreshold;
 	uint8_t earlyRepeatTriggerCount;
 	uint8_t bassAnimationsLength;
 } static audioLink;
@@ -456,6 +459,7 @@ void handleAnimations(){
 				AudioLink{
 					.idleAnimation=newSelectedAnimation,
 					.bassAnimations = newBassAnimations,
+					.bassVolumeThreshold = newBassVolumeThreshold,
 					.earlyRepeatTriggerCount = newEarlyRepeatTriggerCount,
 					.bassAnimationsLength = bassAnimLength
 				}
@@ -486,6 +490,7 @@ void handleAnimations(){
 
 static uint8_t stayOn1 = 0;
 static uint8_t bassAnimationSwitchCounter = 0;
+
 void audioLinkHandler(uint16_t avgSample, uint16_t avgOverTime, uint16_t baseline){
 
 	static LowPassFilterFixed bassFilter3(120.0, 1024);
@@ -516,7 +521,7 @@ void audioLinkHandler(uint16_t avgSample, uint16_t avgOverTime, uint16_t baselin
 	
 	//SoftPWMSetFadeTime(LED_LeftFront.blue.pin,0, 0);
 	//SoftPWMSetFadeTime(LED_LeftFront.red.pin, 0, 0);
-	if(((lowPass120 > baseline && (lowPass120 - baseline) > 30))){
+	if(((lowPass120 > baseline && (lowPass120 - baseline) > audioLink.bassVolumeThreshold))){
 	//if(filteredLowpass80 > 400){
 	//Serial.println("bass");
 		
