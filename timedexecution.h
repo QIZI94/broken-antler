@@ -117,6 +117,10 @@ public: // functions
         execPtr = exec;
     }
 
+	const ExecFunPtr getExecFunction() volatile const {
+		return execPtr;
+	}
+
 	void setup(ExecFunPtr execFunction, uint32_t interval, bool enableTimer = true) volatile {
 		setExecFunction(execFunction);
 		timer.reset(interval);
