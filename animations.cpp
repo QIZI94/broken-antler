@@ -617,10 +617,10 @@ static void timedLateStartAudioLink(TimedExecution1ms&){
 	switch (animationStatePersistentStorage.audioLinkOn)
 	{
 		case AudioLinkSensitivity::HIGH_SENSITIVITY:
-			bassVolumeThreshold = 30;
+			bassVolumeThreshold = 40;
 			break;
 		case AudioLinkSensitivity::LOW_SENSITIVITY:
-			bassVolumeThreshold = 100;
+			bassVolumeThreshold = 105;
 			break;
 		default:
 
