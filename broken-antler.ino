@@ -28,6 +28,7 @@
 #include "SchedPWM_ATmega328P.h"
 #include "SchedPWM.h"
 #include "eepromstorage.h"
+#include "externaldev.h"
 
 #include "panic.h"
 #define FIXED_FORWARD_LIST_TRACEBACK_ENTRY \
@@ -83,6 +84,8 @@ void setup()
 	//enable two after done with sched pwm
 	initAnimationsSwitcher();
   	initAnimations();
+
+	initExternalDevices();
 
 	/*FixedForwardList<10, int> list;
 	using Node = FixedForwardList<10, int>::Node;
@@ -412,6 +415,9 @@ void loop()
  //delay(1);
   handleAnimations();
   handleAnimationsPersistentStorage();
+  communicateWithExternalDevices();
+  
+  
 
   //Serial.println(testTimeTook);
   //delay(2);
