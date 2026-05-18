@@ -5,6 +5,88 @@
 
 #include "timer.h"
 
+inline constexpr uint16_t ACKNOWLEDGE_DATA = 0xBBCC;
+struct Message{
+	
+	enum class Type : uint8_t{
+		NONE = 0x00,
+		REQUEST = 0x02,
+		ALIVE = 0x04,
+		TIME_SYNC = 0x08,
+		TIMED_ANIMATION = 0x10,
+	};
+	struct None{};
+	struct Request{
+		Type requestedMessageType;
+	};
+	struct Alive{
+		uint32_t address;
+	};
+
+	struct TimeSync{
+		uint32_t newTime;
+	};
+
+	
+	union MessageData{
+		const Alive alive;
+		const None none;
+		const Request request;
+		const TimeSync timeSync;
+		//const uint8_t data[6];
+	};
+	
+	MessageData data;
+	const Message::Type type;
+};
+
+
+Message receiveMessageUART();
+void sendMessageUART(const Message &messageIn);
+
+
+
+
+template<Message (*HandleRequestFunc)(Message::Type), void (*HandleMessageFunc)(const Message&)>
+class UARTMessageManager{
+private: // definitions
+
+public: // 
+
+	
+	void sendDeferred(const Message &messageIn);
+
+	void handle() {
+		const Message receiveMessage = receiveMessageUART();
+
+		switch (receiveMessage.type)
+		{
+			case Message::Type::REQUEST:
+				if(HandleRequestFunc != nullptr){
+					Message messageToSendBack = HandleRequestFunc(receiveMessage.data.request.requestedMessageType);
+					sendMessageUART(messageToSendBack);
+				}
+				break;
+		
+			default:
+				if(HandleMessageFunc != nullptr){
+					HandleMessageFunc(receiveMessage);
+				}
+				break;
+		}
+	}
+
+	
+};
+
+
+extern Message handleRequestFunc(Message::Type type);
+
+
+inline UARTMessageManager<handleRequestFunc, nullptr> MessageManager;
+
+
+
 class HTU21DTempHumSensor{
 private:
 	static constexpr uint8_t HTU21D_ADDR = 0x40;
@@ -49,7 +131,7 @@ private:
 	volatile bool requestedRead = false;
 	Request lastRequest = Request::UNINITIALIZED;
 };
-inline HTU21DTempHumSensor temperatureHumiditySensor;
+inline HTU21DTempHumSensor TemperatureHumiditySensor;
 
 extern void initExternalDevices();
 extern void communicateWithExternalDevices();

@@ -1,29 +1,94 @@
 #include "externaldev.h"
+#include "utils/crc.h"
 
 #include <Arduino.h>
 #include <Wire.h>
 
-void initExternalDevices(){
-	Wire.begin();
-	Wire.setClock(400000);
-	Wire.setTimeout(2);
-	temperatureHumiditySensor.begin();
-	/*temperatureHumiditySensor.begin();
 
-	if(!temperatureHumiditySensor.isInitialized()){
-		Serial.println(F("AHT10 initialization failed"));
-	}*/
+struct UniformMessageData{
+	static constexpr uint8_t SYNC_FLAG = 0x5B;
+	// header
+	uint8_t sync = SYNC_FLAG;
+	// message type + data + terminator
+	uint8_t data[5];
+	uint8_t crc[2];
+};
+struct UniformMessageDataWithWakeup{
+	static constexpr int8_t WAKEUP_BYTE = '\n';
+	uint8_t wakeupBytes[1];
+	UniformMessageData messageData;
+};
+
+void sendAck(){
+	Serial.write('\n');
+	Serial.write(ACKNOWLEDGE_DATA);
+}
+
+Message receiveMessageUART() {
+
+	UniformMessageData uniformMessage;
+	static_assert(sizeof(UniformMessageData) == 8);
+	if (Serial.available() >= sizeof(UniformMessageData)) {
+		if(Serial.peek() != UniformMessageData::SYNC_FLAG){
+			Serial.read();	
+		}
+		else {
+			(void)Serial.readBytes((uint8_t*)&uniformMessage, sizeof(UniformMessageData));
+			Message::MessageData messageData{.none = {}};
+
+			uint16_t computedCRC = crc16(uniformMessage.data, sizeof(uniformMessage.data));
+			uint16_t messageCRC = (uniformMessage.crc[1] << 8) | uniformMessage.crc[0];
+			if(computedCRC == messageCRC){
+				memcpy(&messageData, uniformMessage.data, sizeof(Message::MessageData));
+
+				return Message{
+					.data = messageData,
+					.type = Message::Type(uniformMessage.data[sizeof(Message::MessageData)])
+				};
+			}
+			
+		}
+
+	}
+
+	return Message{
+		.data = {.none = {}},
+		.type = Message::Type::NONE
+	};
+}
+
+void sendMessageUART(const Message &messageIn) {
+
+	UniformMessageDataWithWakeup uniformMessageWithWakeup{.wakeupBytes = {0x5B}};
+	UniformMessageData& uniformMessage = uniformMessageWithWakeup.messageData;
+
+	static_assert(sizeof(Message::MessageData) == 4);
+	memcpy(&uniformMessage.data[0], &messageIn.data, sizeof(Message::MessageData));
+	uniformMessage.data[sizeof(Message::MessageData)] = uint8_t(messageIn.type);
+	uint16_t crc = crc16(uniformMessage.data, sizeof(uniformMessage.data));
+
+	uniformMessage.crc[0] = uint8_t(crc);
+	uniformMessage.crc[1] = uint8_t(crc>>8);
+	Serial.write((const uint8_t*)&uniformMessageWithWakeup, sizeof(uniformMessageWithWakeup));
+	Serial.flush();
+}
+
+Message handleRequestFunc(Message::Type type){
+
+	switch (type)
+	{
+		case Message::Type::TIME_SYNC:
+			return Message{.data = {.timeSync = Message::TimeSync{.newTime = uint32_t(millis())}}, .type = Message::Type::TIME_SYNC};
+		
+		default:
+			return Message{.data = {.none = {}}, .type = Message::Type::NONE};
+	}
 
 }
 
 
-void communicateWithExternalDevices(){
-	temperatureHumiditySensor.communicateWithSensor();
-}
 
-
-
-
+///====== Temperature Sensor ======///
 
 void HTU21DTempHumSensor::begin() volatile {
 	Wire.beginTransmission(HTU21D_ADDR);
@@ -48,6 +113,7 @@ void HTU21DTempHumSensor::communicateWithSensor(){
 	switch (lastRequest)
 	{
 		case Request::NO_REQUEST:
+			sendMessageUART(Message{.data = {.alive = Message::Alive{.address = 0xAAAAAAAA}}, .type = Message::Type::ALIVE});
 			if(sendRequest(Request::CMD_TEMP_NOHOLD, 50)){
 				return;
 			}
@@ -103,3 +169,26 @@ bool HTU21DTempHumSensor::readRequest(uint16_t& raw)
 
 	return raw;
 }
+
+
+
+
+void initExternalDevices(){
+	Wire.begin();
+	Wire.setClock(400000);
+	Wire.setTimeout(2);
+	TemperatureHumiditySensor.begin();
+	/*temperatureHumiditySensor.begin();
+
+	if(!temperatureHumiditySensor.isInitialized()){
+		Serial.println(F("AHT10 initialization failed"));
+	}*/
+
+}
+
+
+void communicateWithExternalDevices(){
+	MessageManager.handle();
+	TemperatureHumiditySensor.communicateWithSensor();
+}
+

@@ -71,7 +71,7 @@ volatile static uint32_t testTimeTook = 0;
 
 void setup()
 {
-	Serial.begin(115200);
+	Serial.begin(250000);
 	Serial.println(F("Begining initialization"));
 	initEEPROM();
 	initSamplerADC();
@@ -86,7 +86,7 @@ void setup()
   	initAnimations();
 
 	initExternalDevices();
-
+	
 	/*FixedForwardList<10, int> list;
 	using Node = FixedForwardList<10, int>::Node;
 
