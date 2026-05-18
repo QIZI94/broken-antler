@@ -2,6 +2,7 @@
 #include <EEPROM.h>
 
 #include "eepromstorage.h"
+#include "utils/crc.h"
 
 using InstanceSequence_t = uint8_t;
 struct SequentialValue{
@@ -28,7 +29,6 @@ static const EPEntry* lastLoadedInstancePtr = eepromInvalidAddress;
 static EPEntry lastLoadedInstance = {.seqVal = {.instanceSequenceNumber = 0, .value = 0}, .crc = 0};
 
 // static functions declarations
-static uint16_t crc16(const uint8_t* data, size_t len);
 static const EPEntry* findMostRecent(const EPEntry* begin, const EPEntry* end, InstanceSequence_t& outputSequentialNumber);
 static uint16_t prepareWrite(EPEntry& writeTo, uint16_t value, InstanceSequence_t previousSequenceInstance);
 static bool writeToEEPROM(const EPEntry* newEntry, const EPEntry& content);
@@ -112,21 +112,6 @@ bool loadFromEEPROM(volatile uint16_t& outValue){
 
 
 // static functions definitions
-static uint16_t crc16(const uint8_t* data, size_t len) {
-  uint16_t crc = 0xFFFF;
-
-  for (size_t i = 0; i < len; i++) {
-    crc ^= data[i];
-    for (uint8_t j = 0; j < 8; j++) {
-      if (crc & 1)
-        crc = (crc >> 1) ^ 0xA001;
-      else
-        crc >>= 1;
-    }
-  }
-  return crc;
-}
-
 
 static const EPEntry* findMostRecent(const EPEntry* begin, const EPEntry* end, InstanceSequence_t& outputSequentialNumber){
 	const EPEntry* foundPtr = eepromInvalidAddress;
