@@ -10,13 +10,8 @@ struct UniformMessageData{
 	// header
 	uint8_t sync = SYNC_FLAG;
 	// message type + data + terminator
-	uint8_t data[5];
+	uint8_t data[sizeof(Message)];
 	uint8_t crc[2];
-};
-struct UniformMessageDataWithWakeup{
-	static constexpr int8_t WAKEUP_BYTE = '\n';
-	uint8_t wakeupBytes[1];
-	UniformMessageData messageData;
 };
 
 void sendAck(){
@@ -24,52 +19,109 @@ void sendAck(){
 	Serial.write(ACKNOWLEDGE_DATA);
 }
 
-Message receiveMessageUART() {
+bool validateMessage(const UniformMessageData& msg)
+{
+    uint16_t receivedCrc =
+        (msg.crc[1] << 8) | msg.crc[0];
 
-	UniformMessageData uniformMessage;
-	static_assert(sizeof(UniformMessageData) == 8);
-	if (Serial.available() >= sizeof(UniformMessageData)) {
-		if(Serial.peek() != UniformMessageData::SYNC_FLAG){
-			Serial.read();	
-		}
-		else {
-			(void)Serial.readBytes((uint8_t*)&uniformMessage, sizeof(UniformMessageData));
-			Message::MessageData messageData{.none = {}};
+    uint16_t computedCrc =
+        crc16(
+            reinterpret_cast<const uint8_t*>(&msg.data),
+            sizeof(msg.data)
+        );
 
-			uint16_t computedCRC = crc16(uniformMessage.data, sizeof(uniformMessage.data));
-			uint16_t messageCRC = (uniformMessage.crc[1] << 8) | uniformMessage.crc[0];
-			if(computedCRC == messageCRC){
+    return receivedCrc == computedCrc;
+}
+
+MessageReceiveState receiveMessageUART(Message& messageOut){
+
+    static uint8_t buffer[sizeof(UniformMessageData)];
+    static size_t index = 0;
+
+    while (Serial.available())
+    {
+		
+        uint8_t byte = Serial.read();
+
+        // ---------------------------------------------------------------------
+        // Waiting for SYNC
+        // ---------------------------------------------------------------------
+        if (index == 0)
+        {
+            if (byte != UniformMessageData::SYNC_FLAG)
+            {
+                continue;
+            }
+        }
+
+        buffer[index++] = byte;
+
+        // ---------------------------------------------------------------------
+        // Full message received
+        // ---------------------------------------------------------------------
+        if (index == sizeof(UniformMessageData))
+        {
+			
+			UniformMessageData uniformMessage;
+            memcpy(&uniformMessage, buffer, sizeof(UniformMessageData));
+
+            index = 0;
+
+            // Validate CRC
+            if (validateMessage(uniformMessage))
+            {
+				//Serial.println("here");
+				Message::MessageData messageData{.none = {}};
+
+		
 				memcpy(&messageData, uniformMessage.data, sizeof(Message::MessageData));
 
-				return Message{
-					.data = messageData,
-					.type = Message::Type(uniformMessage.data[sizeof(Message::MessageData)])
+				Message message = Message{
+					messageData,
+					Message::Type(uniformMessage.data[sizeof(Message::MessageData)])
 				};
-			}
-			
-		}
+				memcpy(&messageOut, &message, sizeof(Message));
+				return MessageReceiveState::DONE;
+                //return true;
+            }
 
-	}
+            // -----------------------------------------------------------------
+            // CRC failed
+            //
+            // IMPORTANT:
+            // Try to recover sync immediately instead of discarding everything.
+            // This prevents desync when SYNC appears inside stream.
+            // -----------------------------------------------------------------
+            for (size_t i = 1; i < sizeof(UniformMessageData); ++i)
+            {
+                if (buffer[i] == UniformMessageData::SYNC_FLAG)
+                {
+                    memmove(buffer, &buffer[i], sizeof(UniformMessageData) - i);
+                    index = sizeof(UniformMessageData) - i;
+					return MessageReceiveState::IN_PROGRESS;
+                }
+            }
 
-	return Message{
-		.data = {.none = {}},
-		.type = Message::Type::NONE
-	};
+            index = 0;
+        }
+    }
+
+    return index == 0 ? MessageReceiveState::IDLE : MessageReceiveState::IN_PROGRESS;
 }
 
 void sendMessageUART(const Message &messageIn) {
 
-	UniformMessageDataWithWakeup uniformMessageWithWakeup{.wakeupBytes = {0x5B}};
-	UniformMessageData& uniformMessage = uniformMessageWithWakeup.messageData;
+	UniformMessageData uniformMessage;
 
-	static_assert(sizeof(Message::MessageData) == 4);
+	static_assert(sizeof(Message::data) == 5);
 	memcpy(&uniformMessage.data[0], &messageIn.data, sizeof(Message::MessageData));
 	uniformMessage.data[sizeof(Message::MessageData)] = uint8_t(messageIn.type);
 	uint16_t crc = crc16(uniformMessage.data, sizeof(uniformMessage.data));
 
 	uniformMessage.crc[0] = uint8_t(crc);
 	uniformMessage.crc[1] = uint8_t(crc>>8);
-	Serial.write((const uint8_t*)&uniformMessageWithWakeup, sizeof(uniformMessageWithWakeup));
+	Serial.write('\n');
+	Serial.write((const uint8_t*)&uniformMessage, sizeof(uniformMessage));
 	Serial.flush();
 }
 
@@ -78,10 +130,10 @@ Message handleRequestFunc(Message::Type type){
 	switch (type)
 	{
 		case Message::Type::TIME_SYNC:
-			return Message{.data = {.timeSync = Message::TimeSync{.newTime = uint32_t(millis())}}, .type = Message::Type::TIME_SYNC};
+			return Message{Message::TimeSync{.newTime = uint32_t(millis())}};
 		
 		default:
-			return Message{.data = {.none = {}}, .type = Message::Type::NONE};
+			return Message{};
 	}
 
 }
@@ -113,7 +165,7 @@ void HTU21DTempHumSensor::communicateWithSensor(){
 	switch (lastRequest)
 	{
 		case Request::NO_REQUEST:
-			sendMessageUART(Message{.data = {.alive = Message::Alive{.address = 0xAAAAAAAA}}, .type = Message::Type::ALIVE});
+			sendMessageUART(Message{Message::Alive{.address = 0xAAAAAAAA}});
 			if(sendRequest(Request::CMD_TEMP_NOHOLD, 50)){
 				return;
 			}

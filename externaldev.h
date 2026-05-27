@@ -5,43 +5,68 @@
 
 #include "timer.h"
 
+#define packet_struct struct __attribute__((packed))
 inline constexpr uint16_t ACKNOWLEDGE_DATA = 0xBBCC;
-struct Message{
+packet_struct  Message{
 	
 	enum class Type : uint8_t{
-		NONE = 0x00,
-		REQUEST = 0x02,
-		ALIVE = 0x04,
-		TIME_SYNC = 0x08,
-		TIMED_ANIMATION = 0x10,
+		NONE,
+		REQUEST,
+		ALIVE,
+		TIME_SYNC,
+
+		ACKNOWLEDGE
+
 	};
-	struct None{};
-	struct Request{
+
+
+	packet_struct None{};
+	
+	packet_struct Request{
 		Type requestedMessageType;
+		uint32_t atTime;
 	};
-	struct Alive{
+	packet_struct Alive{
 		uint32_t address;
 	};
 
-	struct TimeSync{
+	packet_struct TimeSync{
 		uint32_t newTime;
 	};
 
+	packet_struct Acknowledge{
+		Type acknowledgedMessage;
+	};
+
+
+	
 	
 	union MessageData{
-		const Alive alive;
-		const None none;
-		const Request request;
-		const TimeSync timeSync;
-		//const uint8_t data[6];
+		None none;
+		Alive alive;
+		Request  request;
+		TimeSync timeSync;
+
+		uint8_t bytes[5];
 	};
+
+	constexpr Message() : data{.none = {}}, type(Type::NONE){}
+	constexpr Message(const MessageData& messageData, Type messageType) : data(messageData), type(messageType){}
+	constexpr Message(const Request& request) : data{.request = request}, type(Type::REQUEST){}
+	constexpr Message(const Alive& alive) : data{.alive = alive}, type(Type::ALIVE){}
+	constexpr Message(const TimeSync& timeSync) : data{.timeSync = timeSync}, type(Type::TIME_SYNC){}
 	
-	MessageData data;
-	const Message::Type type;
+	MessageData  data;
+	Message::Type type;
+};
+enum class MessageReceiveState{
+	IDLE,
+	DONE,
+	IN_PROGRESS,
+	TIMED_OUT
 };
 
-
-Message receiveMessageUART();
+MessageReceiveState receiveMessageUART(Message& messageOut);
 void sendMessageUART(const Message &messageIn);
 
 
@@ -56,28 +81,44 @@ public: //
 	
 	void sendDeferred(const Message &messageIn);
 
-	void handle() {
-		const Message receiveMessage = receiveMessageUART();
-
-		switch (receiveMessage.type)
+	bool handle() {
+		Message receiveMessage{.data = {.none = Message::None{}}, .type = Message::Type::NONE};
+		//Serial.print("peek: ");
+		//Serial.println(Serial1.peek(), HEX);
+		MessageReceiveState messageReceiveState = receiveMessageUART(receiveMessage);
+		//Serial.print("State: ");
+		//Serial.println(int(messageReceiveState));
+		switch (messageReceiveState)
 		{
-			case Message::Type::REQUEST:
-				if(HandleRequestFunc != nullptr){
-					Message messageToSendBack = HandleRequestFunc(receiveMessage.data.request.requestedMessageType);
-					sendMessageUART(messageToSendBack);
-				}
-				break;
-		
-			default:
-				if(HandleMessageFunc != nullptr){
-					HandleMessageFunc(receiveMessage);
-				}
-				break;
+		case MessageReceiveState::DONE:
+			
+			switch (receiveMessage.type)
+			{
+				case Message::Type::REQUEST:
+					if(HandleRequestFunc != nullptr){
+						Message messageToSendBack = HandleRequestFunc(receiveMessage.data.request.requestedMessageType);
+						sendMessageUART(messageToSendBack);
+					}
+					break;
+			
+				default:
+					if(HandleMessageFunc != nullptr){
+						HandleMessageFunc(receiveMessage);
+					}
+					break;
+			}
+			return false;
+		case MessageReceiveState::IDLE:
+
+			return false;
+		default:
+			return true;
 		}
 	}
 
 	
 };
+
 
 
 extern Message handleRequestFunc(Message::Type type);
