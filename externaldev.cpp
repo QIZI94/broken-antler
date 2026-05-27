@@ -138,7 +138,26 @@ Message handleRequestFunc(Message::Type type){
 
 }
 
+void handleMessages(const Message &message){
+	switch (message.type){
+		case Message::Type::NONE:
+			break;
+		case Message::Type::REQUEST:
+			
+			Message messageToSendBack = handleRequestFunc(message.data.request.requestedMessageType);
+			sendMessageUART(messageToSendBack);
+					
+			break;
+		case Message::Type::ALIVE:
+			break;
+		case Message::Type::TIME_SYNC:
 
+			break;
+		case Message::Type::ACKNOWLEDGE:
+			break;
+		
+	}
+}
 
 ///====== Temperature Sensor ======///
 

@@ -72,7 +72,7 @@ void sendMessageUART(const Message &messageIn);
 
 
 
-template<Message (*HandleRequestFunc)(Message::Type), void (*HandleMessageFunc)(const Message&)>
+template<void (*HandleMessageFunc)(const Message&)>
 class UARTMessageManager{
 private: // definitions
 
@@ -92,21 +92,13 @@ public: //
 		{
 		case MessageReceiveState::DONE:
 			
-			switch (receiveMessage.type)
-			{
-				case Message::Type::REQUEST:
-					if(HandleRequestFunc != nullptr){
-						Message messageToSendBack = HandleRequestFunc(receiveMessage.data.request.requestedMessageType);
-						sendMessageUART(messageToSendBack);
-					}
-					break;
 			
-				default:
-					if(HandleMessageFunc != nullptr){
-						HandleMessageFunc(receiveMessage);
-					}
-					break;
+
+			if(HandleMessageFunc != nullptr){
+				HandleMessageFunc(receiveMessage);
 			}
+
+			
 			return false;
 		case MessageReceiveState::IDLE:
 
@@ -121,10 +113,11 @@ public: //
 
 
 
+
 extern Message handleRequestFunc(Message::Type type);
+extern void handleMessages(const Message& message);
 
-
-inline UARTMessageManager<handleRequestFunc, nullptr> MessageManager;
+inline UARTMessageManager<handleMessages> MessageManager;
 
 
 
