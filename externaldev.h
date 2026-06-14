@@ -14,7 +14,7 @@ private: //constants
 	static constexpr uint8_t DEFERRED_MESSAGES_COUNT = UniformMessage::MESSAGE_TYPES_COUNT - 1;
 	static constexpr uint8_t DEFERRED_REPEAT_MASK = 0b11;
 	static constexpr uint8_t DEFERRED_SPECIAL_MESSAGE_REPEAT = 2;
-	static constexpr uint16_t DEFERRED_REPEAT_TIME_US = 3000;
+	static constexpr uint16_t DEFERRED_REPEAT_TIME_US = 1500;
 public: // constants
 	static constexpr uint8_t DEFERRED_DEFAULT_REPEAT_COUNT = 3;
 	static constexpr uint8_t DEFERRED_SUCCESSFUL_STOP_REPEAT = 0;
