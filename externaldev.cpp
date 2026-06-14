@@ -12,8 +12,6 @@ MessageReceptionState UARTMessageHandler::handleMessagesReception(UARTMessageDri
 	UniformMessage receivedMessage;
 	MessageReceptionState messageReceiveState = driver.receiveMessage(receivedMessage);
 	if(messageReceiveState == MessageReceptionState::DONE){
-		/*Serial.print("Received: ");
-		Serial.println(int(receivedMessage.type));*/
 		UniformMessage acknowledge = UniformMessage::Acknowledge{.acknowledgedMessage = receivedMessage.type};
 		switch(receivedMessage.type){
 			case UniformMessage::Type::NONE:
@@ -23,7 +21,6 @@ MessageReceptionState UARTMessageHandler::handleMessagesReception(UARTMessageDri
 				break;
 			case UniformMessage::Type::REQUEST:
 				acknowledge = requestHandler(receivedMessage.data.request.requestedMessageType);
-				Serial.println("REQ");
 			default:
 				driver.sendMessage(acknowledge);
 				if(receivedMessage.isResponse){
@@ -60,13 +57,9 @@ MessageTransmissionState UARTMessageHandler::handleMessagesTransmission(UARTMess
 			if(repeatCount == 0x00){
 				continue;
 			}
-			else if(repeatCount < 3){
-				//Serial.println("Repeat");
-			}
 
 			setDeferredRepeatCountMask(UniformMessage::Type(messageTypeIndex), --repeatCount);
-			//uint8_t messageTypeIndex = maskShifter >> 1;
-			//Serial.println(messageTypeIndex);
+
 			driver.sendMessage(UniformMessage(deferredMessages[messageTypeIndex], UniformMessage::Type(messageTypeIndex)));
 			messageRepeatLastTime = microsNow;
    		}
@@ -128,8 +121,6 @@ void HTU21DTempHumSensor::begin() volatile {
 void HTU21DTempHumSensor::end() volatile {
 	lastRequest = UNINITIALIZED;
 }
-
-
 
 void HTU21DTempHumSensor::communicateWithSensor(){
 	if(!requestDelay.isDown()){

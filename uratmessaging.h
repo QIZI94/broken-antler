@@ -13,7 +13,6 @@ packet_struct  UniformMessage{
 		ALIVE,
 		TIME_SYNC,
 
-		
 		NONE,
 
 	};
@@ -37,9 +36,6 @@ packet_struct  UniformMessage{
 		Type acknowledgedMessage;
 	};
 
-
-	
-	
 	union MessageData{
 		None none;
 		Alive alive;

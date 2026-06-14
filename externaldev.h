@@ -41,18 +41,7 @@ private: // member variables
 	DeferredAtLeastOnceMask deferredSendAtLeastOnceMask = 0x00; 
 
 };
-
-
-
 inline MessageManager<UARTMessageDriver, UARTMessageHandler> uartMessageManager;
-
-
-
-
-
-
-
-
 
 class HTU21DTempHumSensor{
 private:

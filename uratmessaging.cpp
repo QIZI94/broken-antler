@@ -5,14 +5,11 @@
 ///====== Low level UART Communication ======///
 
 MessageTransmissionState UARTMessageDriver::sendMessage(const UniformMessage &messageIn) {
-	/*Serial.print("Type:" );
-	Serial.println(int(messageIn.type));*/
 	MessageFrameWithWakeup uniformMessageWithWakeup{
 		.wakeupByte = MessageFrameWithWakeup::WAKEUP_FLAG,
 		.messageFrame = {.asFrame = {.sync = MessageFrame::Data::SYNC_FLAG}}
 	};
 	MessageFrame& uniformMessage = uniformMessageWithWakeup.messageFrame;
-	uniformMessage.asFrame.sync = MessageFrame::Data::SYNC_FLAG;
 
 	static_assert(sizeof(UniformMessage::data) == 5);
 	memcpy(&uniformMessage.asFrame.data[0], &messageIn, sizeof(UniformMessage));

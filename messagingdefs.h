@@ -1,13 +1,13 @@
 #ifndef MESSAGING_DEFS_H
 #define MESSAGING_DEFS_H
-enum class MessageReceptionState{
+enum class MessageReceptionState : uint8_t{
 	IDLE,
 	DONE,
 	TIMED_OUT,
 	IN_PROGRESS
 };
 
-enum class MessageTransmissionState {
+enum class MessageTransmissionState : uint8_t {
 	IDLE,
 	DONE,
 	TIMED_OUT,
@@ -38,7 +38,7 @@ struct MessageProcessingState {
 		}
 		return true;
 	}
-	
+
 	operator MessageReceptionState() const {
 		return messageReceptionState;
 	}
