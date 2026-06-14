@@ -5,7 +5,7 @@
 
 static constexpr uint8_t TIMER_COMPARE_1MS = 244;
 
-volatile static uint32_t rtcRaw = 0;
+volatile static uint32_t rtcOffset = 0;
 
 // triggers roughly 1 ms (1024 us) at overflow
 ISR(TIMER0_COMPB_vect) {
@@ -15,7 +15,6 @@ ISR(TIMER0_COMPB_vect) {
 	interrupts();
 	TimedExecution1ms::StaticTimerBase::tickAllTimers();
   	TimedExecution1ms::executeAllTimedExecutions();
-	++rtcRaw;
 }
 
 void initTimers(){
@@ -31,14 +30,14 @@ void initTimers(){
 
 void setRTC(uint32_t unixTime){
 	noInterrupts();
-	rtcRaw = unixTime;
+	rtcOffset = unixTime - millis();
 	interrupts();
 }
 
 uint32_t rtcNow(){
 	
 	noInterrupts();
-	volatile const uint32_t now = rtcRaw;
+	const uint32_t now = rtcOffset + millis();
 	interrupts();
 	return now;
 }
