@@ -1,162 +1,117 @@
 #include "externaldev.h"
 #include "utils/crc.h"
+#include "timer.h"
 
 #include <Arduino.h>
 #include <Wire.h>
 
 
-struct UniformMessageData{
-	static constexpr uint8_t SYNC_FLAG = 0x5B;
-	// header
-	uint8_t sync = SYNC_FLAG;
-	// message type + data + terminator
-	uint8_t data[sizeof(Message)];
-	uint8_t crc[2];
-};
+///====== High level UART Communication ======///
 
-void sendAck(){
-	Serial.write('\n');
-	Serial.write(ACKNOWLEDGE_DATA);
+MessageReceptionState UARTMessageHandler::handleMessagesReception(UARTMessageDriver &driver) {
+	UniformMessage receivedMessage;
+	MessageReceptionState messageReceiveState = driver.receiveMessage(receivedMessage);
+	if(messageReceiveState == MessageReceptionState::DONE){
+		/*Serial.print("Received: ");
+		Serial.println(int(receivedMessage.type));*/
+		UniformMessage acknowledge = UniformMessage::Acknowledge{.acknowledgedMessage = receivedMessage.type};
+		switch(receivedMessage.type){
+			case UniformMessage::Type::NONE:
+				break;
+			case UniformMessage::Type::ACKNOWLEDGE:
+				setDeferredRepeatCountMask(receivedMessage.data.acknowledge.acknowledgedMessage, DEFERRED_SUCCESSFUL_STOP_REPEAT);
+				break;
+			case UniformMessage::Type::REQUEST:
+				acknowledge = requestHandler(receivedMessage.data.request.requestedMessageType);
+				Serial.println("REQ");
+			default:
+				driver.sendMessage(acknowledge);
+				if(receivedMessage.isResponse){
+					setDeferredRepeatCountMask(UniformMessage::Type::REQUEST, DEFERRED_SUCCESSFUL_STOP_REPEAT);
+				}
+				switch (receivedMessage.type){
+				
+					case UniformMessage::Type::ALIVE:
+						sendDeferredMessage(UniformMessage::Request{.requestedMessageType = UniformMessage::Type::TIME_SYNC});
+						break;
+					case UniformMessage::Type::TIME_SYNC:
+						setRTC(receivedMessage.data.timeSync.newTime);
+						break;
+
+					default:
+						break;
+				}
+		}
+	}
+	
+	return messageReceiveState;
 }
 
-bool validateMessage(const UniformMessageData& msg)
-{
-    uint16_t receivedCrc =
-        (msg.crc[1] << 8) | msg.crc[0];
+MessageTransmissionState UARTMessageHandler::handleMessagesTransmission(UARTMessageDriver &driver) {
+	uint32_t microsNow = micros();
+	bool shouldRepeat = (microsNow - messageRepeatLastTime) >= DEFERRED_REPEAT_TIME_US;
+	if(shouldRepeat || deferredSendAtLeastOnceMask != 0){
+		//Serial.println(deferredMessageSendAndAckMask, BIN);
+		for(uint8_t messageTypeIndex = 0; messageTypeIndex < DEFERRED_MESSAGES_COUNT; ++messageTypeIndex) {
+			if(!clearDeferredSendAtLeastOnce(UniformMessage::Type(messageTypeIndex)) && !shouldRepeat){
+				continue;
+			}
+			uint8_t repeatCount = getDeferredRepeatCount(UniformMessage::Type(messageTypeIndex));
+			if(repeatCount == 0x00){
+				continue;
+			}
+			else if(repeatCount < 3){
+				//Serial.println("Repeat");
+			}
 
-    uint16_t computedCrc =
-        crc16(
-            reinterpret_cast<const uint8_t*>(&msg.data),
-            sizeof(msg.data)
-        );
-
-    return receivedCrc == computedCrc;
-}
-
-MessageReceiveState receiveMessageUART(Message& messageOut){
-
-    static uint8_t buffer[sizeof(UniformMessageData)];
-    static size_t index = 0;
-
-    while (Serial.available())
-    {
+			setDeferredRepeatCountMask(UniformMessage::Type(messageTypeIndex), --repeatCount);
+			//uint8_t messageTypeIndex = maskShifter >> 1;
+			//Serial.println(messageTypeIndex);
+			driver.sendMessage(UniformMessage(deferredMessages[messageTypeIndex], UniformMessage::Type(messageTypeIndex)));
+			messageRepeatLastTime = microsNow;
+   		}
 		
-        uint8_t byte = Serial.read();
-
-        // ---------------------------------------------------------------------
-        // Waiting for SYNC
-        // ---------------------------------------------------------------------
-        if (index == 0)
-        {
-            if (byte != UniformMessageData::SYNC_FLAG)
-            {
-                continue;
-            }
-        }
-
-        buffer[index++] = byte;
-
-        // ---------------------------------------------------------------------
-        // Full message received
-        // ---------------------------------------------------------------------
-        if (index == sizeof(UniformMessageData))
-        {
-			
-			UniformMessageData uniformMessage;
-            memcpy(&uniformMessage, buffer, sizeof(UniformMessageData));
-
-            index = 0;
-
-            // Validate CRC
-            if (validateMessage(uniformMessage))
-            {
-				//Serial.println("here");
-				Message::MessageData messageData{.none = {}};
-
-		
-				memcpy(&messageData, uniformMessage.data, sizeof(Message::MessageData));
-
-				Message message = Message{
-					messageData,
-					Message::Type(uniformMessage.data[sizeof(Message::MessageData)])
-				};
-				memcpy(&messageOut, &message, sizeof(Message));
-				return MessageReceiveState::DONE;
-                //return true;
-            }
-
-            // -----------------------------------------------------------------
-            // CRC failed
-            //
-            // IMPORTANT:
-            // Try to recover sync immediately instead of discarding everything.
-            // This prevents desync when SYNC appears inside stream.
-            // -----------------------------------------------------------------
-            for (size_t i = 1; i < sizeof(UniformMessageData); ++i)
-            {
-                if (buffer[i] == UniformMessageData::SYNC_FLAG)
-                {
-                    memmove(buffer, &buffer[i], sizeof(UniformMessageData) - i);
-                    index = sizeof(UniformMessageData) - i;
-					return MessageReceiveState::IN_PROGRESS;
-                }
-            }
-
-            index = 0;
-        }
-    }
-
-    return index == 0 ? MessageReceiveState::IDLE : MessageReceiveState::IN_PROGRESS;
+	}
+	return deferredMessageSendAndAckMask == 0 ? MessageTransmissionState::DONE : MessageTransmissionState::IN_PROGRESS;
 }
 
-void sendMessageUART(const Message &messageIn) {
-
-	UniformMessageData uniformMessage;
-
-	static_assert(sizeof(Message::data) == 5);
-	memcpy(&uniformMessage.data[0], &messageIn.data, sizeof(Message::MessageData));
-	uniformMessage.data[sizeof(Message::MessageData)] = uint8_t(messageIn.type);
-	uint16_t crc = crc16(uniformMessage.data, sizeof(uniformMessage.data));
-
-	uniformMessage.crc[0] = uint8_t(crc);
-	uniformMessage.crc[1] = uint8_t(crc>>8);
-	Serial.write('\n');
-	Serial.write((const uint8_t*)&uniformMessage, sizeof(uniformMessage));
-	Serial.flush();
+void UARTMessageHandler::sendDeferredMessage(const UniformMessage& message, uint8_t repeatCount) {
+	deferredMessages[uint8_t(message.type)] = message.data;
+	setDeferredRepeatCountMask(message.type, repeatCount);
+	setDeferredSendAtLeastOnce(message.type);
 }
 
-Message handleRequestFunc(Message::Type type){
-
-	switch (type)
-	{
-		case Message::Type::TIME_SYNC:
-			return Message{Message::TimeSync{.newTime = uint32_t(millis())}};
+UniformMessage UARTMessageHandler::requestHandler(UniformMessage::Type msgType) {
+	switch (msgType){
+		case UniformMessage::Type::TIME_SYNC:
+			return UniformMessage{UniformMessage::TimeSync{.newTime = rtcNow()}, true};
 		
 		default:
-			return Message{};
+			return UniformMessage::Acknowledge{.acknowledgedMessage = UniformMessage::Type::REQUEST};
 	}
+}
+
+void UARTMessageHandler::setDeferredRepeatCountMask(UniformMessage::Type msgType, uint8_t attemptCount) {
+	uint8_t shift = uint8_t(msgType) << 1;
+	deferredMessageSendAndAckMask = (deferredMessageSendAndAckMask & ~(DEFERRED_REPEAT_MASK << shift)) | (attemptCount << shift);
 
 }
 
-void handleMessages(const Message &message){
-	switch (message.type){
-		case Message::Type::NONE:
-			break;
-		case Message::Type::REQUEST:
-			
-			Message messageToSendBack = handleRequestFunc(message.data.request.requestedMessageType);
-			sendMessageUART(messageToSendBack);
-					
-			break;
-		case Message::Type::ALIVE:
-			break;
-		case Message::Type::TIME_SYNC:
+uint8_t UARTMessageHandler::getDeferredRepeatCount(UniformMessage::Type msgType) {
+	uint8_t shift = uint8_t(msgType) << 1;
+	return (deferredMessageSendAndAckMask >> shift) & DEFERRED_REPEAT_MASK;
+}
 
-			break;
-		case Message::Type::ACKNOWLEDGE:
-			break;
-		
-	}
+void UARTMessageHandler::setDeferredSendAtLeastOnce(UniformMessage::Type msgType) {
+	deferredSendAtLeastOnceMask |= 0x01 << uint8_t(msgType);
+}
+
+bool UARTMessageHandler::clearDeferredSendAtLeastOnce(UniformMessage::Type msgType) {
+	const uint8_t msgTypeMask = 0x01 << uint8_t(msgType);
+	const bool wasSet = (deferredSendAtLeastOnceMask & msgTypeMask) != 0;
+	deferredSendAtLeastOnceMask &= ~msgTypeMask;
+
+	return wasSet;
 }
 
 ///====== Temperature Sensor ======///
@@ -184,7 +139,6 @@ void HTU21DTempHumSensor::communicateWithSensor(){
 	switch (lastRequest)
 	{
 		case Request::NO_REQUEST:
-			sendMessageUART(Message{Message::Alive{.address = 0xAAAAAAAA}});
 			if(sendRequest(Request::CMD_TEMP_NOHOLD, 50)){
 				return;
 			}
@@ -249,6 +203,9 @@ void initExternalDevices(){
 	Wire.setClock(400000);
 	Wire.setTimeout(2);
 	TemperatureHumiditySensor.begin();
+	uartMessageManager.begin();
+	delay(100);
+	uartMessageManager.handler.sendDeferredMessage(UniformMessage{UniformMessage::Alive{.who = 0xAD328}});
 	/*temperatureHumiditySensor.begin();
 
 	if(!temperatureHumiditySensor.isInitialized()){
@@ -259,7 +216,9 @@ void initExternalDevices(){
 
 
 void communicateWithExternalDevices(){
-	MessageManager.handle();
+	//messageManager.handle();
+	//delay(1);
+	while(uartMessageManager.run() != MessageReceptionState::IDLE);
 	TemperatureHumiditySensor.communicateWithSensor();
 }
 

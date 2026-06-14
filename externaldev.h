@@ -4,120 +4,53 @@
 #include <inttypes.h>
 
 #include "timer.h"
+#include "uratmessaging.h"
 
-#define packet_struct struct __attribute__((packed))
-inline constexpr uint16_t ACKNOWLEDGE_DATA = 0xBBCC;
-packet_struct  Message{
-	
-	enum class Type : uint8_t{
-		NONE,
-		REQUEST,
-		ALIVE,
-		TIME_SYNC,
-
-		ACKNOWLEDGE
-
-	};
-
-
-	packet_struct None{};
-	
-	packet_struct Request{
-		Type requestedMessageType;
-		uint32_t atTime;
-	};
-	packet_struct Alive{
-		uint32_t address;
-	};
-
-	packet_struct TimeSync{
-		uint32_t newTime;
-	};
-
-	packet_struct Acknowledge{
-		Type acknowledgedMessage;
-	};
-
-
-	
-	
-	union MessageData{
-		None none;
-		Alive alive;
-		Request  request;
-		TimeSync timeSync;
-
-		uint8_t bytes[5];
-	};
-
-	constexpr Message() : data{.none = {}}, type(Type::NONE){}
-	constexpr Message(const MessageData& messageData, Type messageType) : data(messageData), type(messageType){}
-	constexpr Message(const Request& request) : data{.request = request}, type(Type::REQUEST){}
-	constexpr Message(const Alive& alive) : data{.alive = alive}, type(Type::ALIVE){}
-	constexpr Message(const TimeSync& timeSync) : data{.timeSync = timeSync}, type(Type::TIME_SYNC){}
-	
-	MessageData  data;
-	Message::Type type;
-};
-enum class MessageReceiveState{
-	IDLE,
-	DONE,
-	IN_PROGRESS,
-	TIMED_OUT
-};
-
-MessageReceiveState receiveMessageUART(Message& messageOut);
-void sendMessageUART(const Message &messageIn);
-
-
-
-
-template<void (*HandleMessageFunc)(const Message&)>
-class UARTMessageManager{
+class UARTMessageHandler{
 private: // definitions
-
-public: // 
-
-	
-	void sendDeferred(const Message &messageIn);
-
-	bool handle() {
-		Message receiveMessage{.data = {.none = Message::None{}}, .type = Message::Type::NONE};
-		//Serial.print("peek: ");
-		//Serial.println(Serial1.peek(), HEX);
-		MessageReceiveState messageReceiveState = receiveMessageUART(receiveMessage);
-		//Serial.print("State: ");
-		//Serial.println(int(messageReceiveState));
-		switch (messageReceiveState)
-		{
-		case MessageReceiveState::DONE:
-			
-			
-
-			if(HandleMessageFunc != nullptr){
-				HandleMessageFunc(receiveMessage);
-			}
-
-			
-			return false;
-		case MessageReceiveState::IDLE:
-
-			return false;
-		default:
-			return true;
-		}
+	using DeferredRepeatMask = uint16_t;
+	using DeferredAtLeastOnceMask = uint8_t;
+private: //constants
+	static constexpr uint8_t DEFERRED_MESSAGES_COUNT = UniformMessage::MESSAGE_TYPES_COUNT - 1;
+	static constexpr uint8_t DEFERRED_REPEAT_MASK = 0b11;
+	static constexpr uint8_t DEFERRED_SPECIAL_MESSAGE_REPEAT = 2;
+	static constexpr uint16_t DEFERRED_REPEAT_TIME_US = 3000;
+public: // constants
+	static constexpr uint8_t DEFERRED_DEFAULT_REPEAT_COUNT = 3;
+	static constexpr uint8_t DEFERRED_SUCCESSFUL_STOP_REPEAT = 0;
+public: // interface
+	void begin() {}
+	void end() {
+		messageRepeatLastTime = 0;
+		deferredMessageSendAndAckMask = 0x0000;
 	}
+	MessageReceptionState handleMessagesReception(UARTMessageDriver& driver);
+	MessageTransmissionState handleMessagesTransmission(UARTMessageDriver& driver);
+public: // member functions
+	void sendDeferredMessage(const UniformMessage& message,  uint8_t repeatCount = DEFERRED_DEFAULT_REPEAT_COUNT);
+private: // member functions
+	UniformMessage requestHandler(UniformMessage::Type msgType);
+	void setDeferredRepeatCountMask(UniformMessage::Type msgType, uint8_t attemptCount);
+	uint8_t getDeferredRepeatCount(UniformMessage::Type msgType);
+	void setDeferredSendAtLeastOnce(UniformMessage::Type msgType);
+	bool clearDeferredSendAtLeastOnce(UniformMessage::Type msgType);
+private: // member variables
+	UniformMessage::MessageData deferredMessages[DEFERRED_MESSAGES_COUNT];
+	uint32_t messageRepeatLastTime = 0;
+	DeferredRepeatMask deferredMessageSendAndAckMask = 0x0000;
+	DeferredAtLeastOnceMask deferredSendAtLeastOnceMask = 0x00; 
 
-	
 };
 
 
 
+inline MessageManager<UARTMessageDriver, UARTMessageHandler> uartMessageManager;
 
-extern Message handleRequestFunc(Message::Type type);
-extern void handleMessages(const Message& message);
 
-inline UARTMessageManager<handleMessages> MessageManager;
+
+
+
+
 
 
 
