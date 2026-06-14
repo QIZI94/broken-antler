@@ -3,14 +3,14 @@
 enum class MessageReceptionState : uint8_t{
 	IDLE,
 	DONE,
-	TIMED_OUT,
+	TIMED_OUT_OR_FAILED,
 	IN_PROGRESS
 };
 
 enum class MessageTransmissionState : uint8_t {
 	IDLE,
 	DONE,
-	TIMED_OUT,
+	TIMED_OUT_OR_FAILED,
 	IN_PROGRESS
 };
 
@@ -23,7 +23,7 @@ struct MessageProcessingState {
 		{
 			case MessageReceptionState::IDLE:
 			case MessageReceptionState::DONE:
-			case MessageReceptionState::TIMED_OUT:
+			case MessageReceptionState::TIMED_OUT_OR_FAILED:
 				return false;
 			default:
 				break;
@@ -31,7 +31,7 @@ struct MessageProcessingState {
 		switch (messageTransmissionState){
 			case MessageTransmissionState::IDLE:
 			case MessageTransmissionState::DONE:
-			case MessageTransmissionState::TIMED_OUT:
+			case MessageTransmissionState::TIMED_OUT_OR_FAILED:
 				return false;
 			default:
 				break;

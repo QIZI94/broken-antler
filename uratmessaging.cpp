@@ -94,7 +94,7 @@ MessageReceptionState UARTMessageDriver::receiveMessage(UniformMessage &messageO
 	}
 	else if((nowMicros - receptionTimeoutLastTime) >= RECEPTION_TIMEOUT_US){
 		receptionBufferIndex = 0;
-		return MessageReceptionState::TIMED_OUT;
+		return MessageReceptionState::TIMED_OUT_OR_FAILED;
 	}
 	
 	return MessageReceptionState::IN_PROGRESS;
