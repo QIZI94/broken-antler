@@ -8,11 +8,13 @@
 
 ///====== High level UART Communication ======///
 
+constexpr uint32_t arduinoSignature = 0xAD328;
+
 MessageReceptionState UARTMessageHandler::handleMessagesReception(UARTMessageDriver &driver) {
 	UniformMessage receivedMessage;
 	MessageReceptionState messageReceiveState = driver.receiveMessage(receivedMessage);
 	if(messageReceiveState == MessageReceptionState::DONE){
-		UniformMessage acknowledge = UniformMessage::Acknowledge{.acknowledgedMessage = receivedMessage.type};
+		UniformMessage acknowledgeOrResponse = UniformMessage::Acknowledge{.acknowledgedMessage = receivedMessage.type};
 		switch(receivedMessage.type){
 			case UniformMessage::Type::NONE:
 				break;
@@ -20,16 +22,16 @@ MessageReceptionState UARTMessageHandler::handleMessagesReception(UARTMessageDri
 				setDeferredRepeatCountMask(receivedMessage.data.acknowledge.acknowledgedMessage, DEFERRED_SUCCESSFUL_STOP_REPEAT);
 				break;
 			case UniformMessage::Type::REQUEST:
-				acknowledge = requestHandler(receivedMessage.data.request.requestedMessageType);
-			default:
-				driver.sendMessage(acknowledge);
-				if(receivedMessage.isResponse){
-					setDeferredRepeatCountMask(UniformMessage::Type::REQUEST, DEFERRED_SUCCESSFUL_STOP_REPEAT);
+				if(assembleMessage(acknowledgeOrResponse, receivedMessage.data.request.requestedMessageType)){
+					acknowledgeOrResponse.isResponse = true;
 				}
+			default:
+				driver.sendMessage(acknowledgeOrResponse);
+				
 				switch (receivedMessage.type){
 				
 					case UniformMessage::Type::ALIVE:
-						sendDeferredMessage(UniformMessage::Request{.requestedMessageType = UniformMessage::Type::TIME_SYNC});
+						sendDeferredMessage(UniformMessage::Type::TIME_SYNC);
 						break;
 					case UniformMessage::Type::TIME_SYNC:
 						setRTC(receivedMessage.data.timeSync.newTime);
@@ -38,6 +40,9 @@ MessageReceptionState UARTMessageHandler::handleMessagesReception(UARTMessageDri
 					default:
 						break;
 				}
+		}
+		if(receivedMessage.isResponse){
+			setDeferredRepeatCountMask(UniformMessage::Type::REQUEST, DEFERRED_SUCCESSFUL_STOP_REPEAT);
 		}
 	}
 	
@@ -49,6 +54,7 @@ MessageTransmissionState UARTMessageHandler::handleMessagesTransmission(UARTMess
 	bool shouldRepeat = (microsNow - messageRepeatLastTime) >= DEFERRED_REPEAT_TIME_US;
 	if(shouldRepeat || deferredSendAtLeastOnceMask != 0){
 		//Serial.println(deferredMessageSendAndAckMask, BIN);
+		UniformMessage deferredMessage;
 		for(uint8_t messageTypeIndex = 0; messageTypeIndex < DEFERRED_MESSAGES_COUNT; ++messageTypeIndex) {
 			if(!clearDeferredSendAtLeastOnce(UniformMessage::Type(messageTypeIndex)) && !shouldRepeat){
 				continue;
@@ -58,30 +64,59 @@ MessageTransmissionState UARTMessageHandler::handleMessagesTransmission(UARTMess
 				continue;
 			}
 
-			setDeferredRepeatCountMask(UniformMessage::Type(messageTypeIndex), --repeatCount);
-
-			driver.sendMessage(UniformMessage(deferredMessages[messageTypeIndex], UniformMessage::Type(messageTypeIndex)));
-			messageRepeatLastTime = microsNow;
+			if(assembleMessage(deferredMessage, UniformMessage::Type(messageTypeIndex))){
+				setDeferredRepeatCountMask(UniformMessage::Type(messageTypeIndex), --repeatCount);
+				
+				driver.sendMessage(deferredMessage);
+				messageRepeatLastTime = microsNow;
+			}
+			else {
+				// no message filled
+				setDeferredRepeatCountMask(UniformMessage::Type(messageTypeIndex), DEFERRED_SUCCESSFUL_STOP_REPEAT);
+			}
    		}
-		
+
 	}
 	return deferredMessageSendAndAckMask == 0 ? MessageTransmissionState::DONE : MessageTransmissionState::IN_PROGRESS;
 }
 
-void UARTMessageHandler::sendDeferredMessage(const UniformMessage& message, uint8_t repeatCount) {
-	deferredMessages[uint8_t(message.type)] = message.data;
-	setDeferredRepeatCountMask(message.type, repeatCount);
-	setDeferredSendAtLeastOnce(message.type);
+void UARTMessageHandler::sendDeferredMessage(UniformMessage::Type inType, uint8_t repeatCount) {
+	//deferredMessages[uint8_t(message.type)] = message.data;
+	setDeferredRepeatCountMask(inType, repeatCount);
+	setDeferredSendAtLeastOnce(inType);
 }
 
-UniformMessage UARTMessageHandler::requestHandler(UniformMessage::Type msgType) {
-	switch (msgType){
+void UARTMessageHandler::requestDeferredMessage(UniformMessage::Type inType, uint8_t repeatCount) {
+	deferredRequestType = inType;
+	sendDeferredMessage(UniformMessage::Type::REQUEST, repeatCount);
+}
+
+bool UARTMessageHandler::assembleMessage(UniformMessage &messageOut, UniformMessage::Type inType) {
+	bool assembled = true;
+	switch (inType){
+		case UniformMessage::Type::REQUEST:
+			if(deferredRequestType != UniformMessage::Type::NONE) {
+				messageOut.data.request.requestedMessageType = deferredRequestType;
+			}
+			else {
+				assembled = false;
+			}
+			break;
+		case UniformMessage::Type::ALIVE:
+			messageOut.data.alive.who = arduinoSignature;
+			break;
 		case UniformMessage::Type::TIME_SYNC:
-			return UniformMessage{UniformMessage::TimeSync{.newTime = rtcNow()}, true};
+			messageOut.data.timeSync.newTime = rtcNow();
+			break;
 		
 		default:
-			return UniformMessage::Acknowledge{.acknowledgedMessage = UniformMessage::Type::REQUEST};
+			assembled = false;
+			break;
 	}
+	if(assembled){
+		messageOut.type = inType;
+	}
+	return assembled;
 }
 
 void UARTMessageHandler::setDeferredRepeatCountMask(UniformMessage::Type msgType, uint8_t attemptCount) {
@@ -130,6 +165,7 @@ void HTU21DTempHumSensor::communicateWithSensor(){
 	switch (lastRequest)
 	{
 		case Request::NO_REQUEST:
+			//uartMessageManager.handler.requestDeferredMessage(UniformMessage::Type::TIME_SYNC);
 			if(sendRequest(Request::CMD_TEMP_NOHOLD, 50)){
 				return;
 			}
@@ -196,7 +232,7 @@ void initExternalDevices(){
 	TemperatureHumiditySensor.begin();
 	uartMessageManager.begin();
 	delay(100);
-	uartMessageManager.handler.sendDeferredMessage(UniformMessage{UniformMessage::Alive{.who = 0xAD328}});
+	uartMessageManager.handler.sendDeferredMessage(UniformMessage::Type::ALIVE);
 	/*temperatureHumiditySensor.begin();
 
 	if(!temperatureHumiditySensor.isInitialized()){

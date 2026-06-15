@@ -27,18 +27,20 @@ public: // interface
 	MessageReceptionState handleMessagesReception(UARTMessageDriver& driver);
 	MessageTransmissionState handleMessagesTransmission(UARTMessageDriver& driver);
 public: // member functions
-	void sendDeferredMessage(const UniformMessage& message,  uint8_t repeatCount = DEFERRED_DEFAULT_REPEAT_COUNT);
+	void sendDeferredMessage(UniformMessage::Type inType, uint8_t repeatCount = DEFERRED_DEFAULT_REPEAT_COUNT);
+	void requestDeferredMessage(UniformMessage::Type inType, uint8_t repeatCount = DEFERRED_DEFAULT_REPEAT_COUNT);
 private: // member functions
-	UniformMessage requestHandler(UniformMessage::Type msgType);
+	bool assembleMessage(UniformMessage& messageOut, UniformMessage::Type inType);
 	void setDeferredRepeatCountMask(UniformMessage::Type msgType, uint8_t attemptCount);
 	uint8_t getDeferredRepeatCount(UniformMessage::Type msgType);
 	void setDeferredSendAtLeastOnce(UniformMessage::Type msgType);
 	bool clearDeferredSendAtLeastOnce(UniformMessage::Type msgType);
 private: // member variables
-	UniformMessage::MessageData deferredMessages[DEFERRED_MESSAGES_COUNT];
+	//UniformMessage::MessageData deferredMessages[DEFERRED_MESSAGES_COUNT];
 	uint32_t messageRepeatLastTime = 0;
 	DeferredRepeatMask deferredMessageSendAndAckMask = 0x0000;
-	DeferredAtLeastOnceMask deferredSendAtLeastOnceMask = 0x00; 
+	DeferredAtLeastOnceMask deferredSendAtLeastOnceMask = 0x00;
+	UniformMessage::Type deferredRequestType = UniformMessage::Type::NONE;
 
 };
 inline MessageManager<UARTMessageDriver, UARTMessageHandler> uartMessageManager;
