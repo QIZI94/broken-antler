@@ -75,11 +75,6 @@ private: // definitions
 		Data asFrame;
 		uint8_t asBuffer[sizeof(Data)];
 	};
-	struct MessageFrameWithWakeup {
-		static constexpr uint8_t WAKEUP_FLAG = 0xAA; // 0b10101010
-		uint8_t wakeupByte;
-		MessageFrame messageFrame;
-	};
 public: // constants
 	static constexpr uint32_t RECEPTION_TIMEOUT_US = 1000;
 public: // interface

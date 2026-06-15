@@ -5,11 +5,7 @@
 ///====== Low level UART Communication ======///
 
 MessageTransmissionState UARTMessageDriver::sendMessage(const UniformMessage &messageIn) {
-	MessageFrameWithWakeup uniformMessageWithWakeup{
-		.wakeupByte = MessageFrameWithWakeup::WAKEUP_FLAG,
-		.messageFrame = {.asFrame = {.sync = MessageFrame::Data::SYNC_FLAG}}
-	};
-	MessageFrame& uniformMessage = uniformMessageWithWakeup.messageFrame;
+	MessageFrame uniformMessage = {.asFrame = {.sync = MessageFrame::Data::SYNC_FLAG}};
 
 	static_assert(sizeof(UniformMessage::data) == 5);
 	memcpy(&uniformMessage.asFrame.data[0], &messageIn, sizeof(UniformMessage));
@@ -18,8 +14,10 @@ MessageTransmissionState UARTMessageDriver::sendMessage(const UniformMessage &me
 	uniformMessage.asFrame.crc[0] = uint8_t(crc);
 	uniformMessage.asFrame.crc[1] = uint8_t(crc>>8);
 	
-	//Serial.write(wakeup, 4);
-	Serial.write((const uint8_t*)&uniformMessageWithWakeup, sizeof(MessageFrameWithWakeup));
+	Serial.write(0xAA);
+	Serial.flush();
+	delayMicroseconds(300);
+	Serial.write((const uint8_t*)&uniformMessage, sizeof(MessageFrame));
 	Serial.flush();
 
 	return MessageTransmissionState::DONE;
@@ -54,7 +52,7 @@ MessageReceptionState UARTMessageDriver::receiveMessage(UniformMessage &messageO
         // ---------------------------------------------------------------------
         // Full message received
         // ---------------------------------------------------------------------
-        if (receptionBufferIndex == sizeof(MessageFrame))
+        while (receptionBufferIndex == sizeof(MessageFrame))
         {
 			
 			
