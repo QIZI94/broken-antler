@@ -27,7 +27,9 @@ MessageReceptionState UARTMessageHandler::handleMessagesReception(UARTMessageDri
 				}
 			default:
 				driver.sendMessage(acknowledgeOrResponse);
-				
+				if(receivedMessage.isResponse){
+					setDeferredRepeatCountMask(UniformMessage::Type::REQUEST, DEFERRED_SUCCESSFUL_STOP_REPEAT);
+				}
 				switch (receivedMessage.type){
 				
 					case UniformMessage::Type::ALIVE:
@@ -40,9 +42,6 @@ MessageReceptionState UARTMessageHandler::handleMessagesReception(UARTMessageDri
 					default:
 						break;
 				}
-		}
-		if(receivedMessage.isResponse){
-			setDeferredRepeatCountMask(UniformMessage::Type::REQUEST, DEFERRED_SUCCESSFUL_STOP_REPEAT);
 		}
 	}
 	
