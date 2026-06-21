@@ -135,7 +135,7 @@ bool UARTMessageHandler::buildMessage(UniformMessage &messageOut, UniformMessage
 			messageOut.data.timeSync.newTime = currentRTC;
 			break;
 		case UniformMessage::Type::TIMED_EVENT:
-			messageOut.data.timedLedEvent.atTime = currentRTC;
+			messageOut.data.timedEvent.atTime = currentRTC;
 			break;
 		
 		default:

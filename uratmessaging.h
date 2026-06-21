@@ -62,7 +62,7 @@ packet_struct  UniformMessage{
 		Latency latency;
 		Request  request;
 		TimeSync timeSync;
-		TimedEvent timedLedEvent;
+		TimedEvent timedEvent;
 		Acknowledge acknowledge;
 
 		uint8_t asBytes[MESSAGE_DATA_BYTE_SIZE];
@@ -78,7 +78,7 @@ packet_struct  UniformMessage{
 	constexpr UniformMessage(const Request& request, bool isResponse = false) : data{.request = request}, isResponse(isResponse), type(Type::REQUEST){}
 	constexpr UniformMessage(const Alive& alive, bool isResponse = false) : data{.alive = alive}, isResponse(isResponse), type(Type::ALIVE){}
 	constexpr UniformMessage(const TimeSync& timeSync, bool isResponse = false) : data{.timeSync = timeSync}, isResponse(isResponse), type(Type::TIME_SYNC){}
-	constexpr UniformMessage(const TimedEvent& timedLedEvent, bool isResponse = false) : data{.timedLedEvent = timedLedEvent}, isResponse(isResponse), type(Type::TIMED_EVENT){}
+	constexpr UniformMessage(const TimedEvent& timedEvent, bool isResponse = false) : data{.timedEvent = timedEvent}, isResponse(isResponse), type(Type::TIMED_EVENT){}
 	constexpr UniformMessage(const Acknowledge& acknowledge, bool isResponse = false) : data{.acknowledge = acknowledge}, isResponse(isResponse), type(Type::ACKNOWLEDGE){}
 	
 	MessageData  data;
