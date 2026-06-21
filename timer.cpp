@@ -30,14 +30,14 @@ void initTimers(){
 
 void setRTC(uint32_t unixTime){
 	noInterrupts();
-	rtcOffset = unixTime - millis();
+	rtcOffset = unixTime - micros();
 	interrupts();
 }
 
 uint32_t rtcNow(){
 	
 	noInterrupts();
-	const uint32_t now = rtcOffset + millis();
+	const uint32_t now = rtcOffset + micros();
 	interrupts();
 	return now;
 }
