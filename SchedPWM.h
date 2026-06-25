@@ -13,51 +13,11 @@
 #define FIXED_FORWARD_LIST_TRACEBACK_ENTRY SCHEDULED_PWM_TRACEBACK_ENTRY
 
 
-#include "fixedforwardlist.h"
+#include "utils/fixedforwardlist.h"
 
 
 
-#define _DEFINE_HAS_METHOD_IMPLEMENTED(name)                         \
-template <typename T, typename Sig>                           \
-struct has_##name##_implemented;                                    \
-                                                              \
-template <typename T, typename R, typename... Args>           \
-struct has_##name##_implemented<T, R (T::*)(Args...)> {              \
-    typedef char yes[1];                                       \
-    typedef char no[2];                                        \
-                                                              \
-    template <typename U>                                      \
-    static yes& test(                                          \
-        decltype(static_cast<R (U::*)(Args...)>(&U::name))*); \
-                                                              \
-    template <typename>                                        \
-    static no& test(...);                                      \
-                                                              \
-    static constexpr bool value =                              \
-        sizeof(test<T>(0)) == sizeof(yes);                    \
-};                                                            \
-                                                              \
-template <typename T, typename R, typename... Args>           \
-struct has_##name##_implemented<T, R (T::*)(Args...) const> {        \
-    typedef char yes[1];                                       \
-    typedef char no[2];                                        \
-                                                              \
-    template <typename U>                                      \
-    static yes& test(                                          \
-        decltype(static_cast<R (U::*)(Args...) const>(&U::name))*); \
-                                                              \
-    template <typename>                                        \
-    static no& test(...);                                      \
-                                                              \
-    static constexpr bool value =                              \
-        sizeof(test<T>(0)) == sizeof(yes);                    \
-};
 
-#define _HAS_METHOD_IMPLEMENTED_HELPER(DerivedClass, Method, ReturnType, Args) \
-static_assert(\
-	has_##Method##_implemented<DerivedClass, ReturnType (DerivedClass::*)Args>::value,\
-	"Derived class doesn't implement method with signature '" #ReturnType " " #Method #Args\
-);
 
 
 template<size_t N, class Impl, typename LED_ID_TYPE,  typename STEP_STORAGE_TYPE, typename BRIGHTNESS_TYPE = uint8_t>
@@ -97,7 +57,7 @@ public: // type definitions
 		}
 	};
 
-	using StepList = FixedForwardList<LED_COUNT + 1, PWMStep, true>;
+	using StepList = utils::FixedForwardList<LED_COUNT + 1, PWMStep, true>;
 	using StepNode = typename StepList::Node;
 
 	enum class BufferIndex : uint8_t{
@@ -541,7 +501,7 @@ class DimmingPWM {
 		LedID ledId;
 
 	};
-	using DimmingStateList = FixedForwardList<SCHEDULED_PWM::LED_COUNT, DimmingState>;
+	using DimmingStateList = utils::FixedForwardList<SCHEDULED_PWM::LED_COUNT, DimmingState>;
 	using Node = typename DimmingStateList::Node;
 
 	public: // constants
