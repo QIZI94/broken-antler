@@ -135,6 +135,9 @@ public: // definitions
 	static inline constexpr iterator beforeBegin(){
 		return iterator(nullptr);
 	}
+	inline iterator beforeEnd(){
+		return before_end;
+	}
 
 	inline const_iterator cbegin() const {
 		return const_iterator(begin_ptr.node_ptr);
@@ -147,22 +150,19 @@ public: // definitions
 	inline const const_iterator beforeCBegin() const {
 		return const_iterator(nullptr);
 	}
-
-	inline Node* link_after_unchecked(Node* beforeNode, Node* linkedNode){
-		linkedNode->next_ptr = beforeNode->next_ptr;
-		beforeNode->next_ptr = linkedNode;
-		return beforeNode;
+	inline const_iterator beforeEnd() const{
+		return before_end;
 	}
-	
+
 	inline bool link_after(iterator beforeIt, iterator linkedIt){
 		iterator endIt = end();
-		if(isInvalidNode(linkedIt.asNode())){
+		if(isInvalidNode(linkedIt)){
 			return false;
 		}
 		bool isLinked = linkedIt.asNode()->isLinked();
 		
 		if(beforeIt != beforeBegin()){
-			if(isInvalidNode(beforeIt.asNode())){
+			if(isInvalidNode(beforeIt)){
 				return false;
 			}
 			if(beforeIt.asNode()->isLinked() == false){
@@ -187,6 +187,7 @@ public: // definitions
 			}
 			else {
 				previousNodeByIndex[linkedIndex] = indexByNodeUnchecked(beforeIt.asNode());
+				before_end = linkedIt;
 			}
 		}
 		else {
@@ -198,25 +199,13 @@ public: // definitions
 			if(nextNode != endIt.asNode()){
 				previousNodeByIndex[indexByNodeUnchecked(linkedIt.asNode())] = previousNodeByIndex[indexByNodeUnchecked(nextNode)];
 			}
+			else {
+				before_end = linkedIt;
+			}
 		}
 
 		return true;
 		
-
-		// basically relink
-		
-
-		
-		/*if(
-			beforeIt == linkedIt          ||
-			linkedIt.asNode()->isLinked() ||
-			isForeignNode(beforeIt)       ||
-			isForeignNode(linkedIt)       
-		){
-			return end();
-		}
-		*/
-		//return iterator(link_after_unchecked(beforeIt.asNode(), linkedIt.asNode()));
 	}
 
 	inline bool unlink_after(iterator beforeIt, iterator linkedIt){
@@ -226,7 +215,7 @@ public: // definitions
 		}
 		
 		if(beforeIt != beforeBegin()){
-			if(isInvalidNode(beforeIt.asNode())){
+			if(isInvalidNode(beforeIt)){
 				return false;
 			}
 			if(beforeIt.asNode()->next_ptr != linkedIt.asNode()){
@@ -241,7 +230,10 @@ public: // definitions
 			if(nextNode != endIt.asNode()){
 				IndexType nextIndex = indexByNodeUnchecked(nextNode);
 				previousNodeByIndex[nextIndex] = previousNodeByIndex[linkedIndex];
-			};
+			}
+			else {
+				before_end = beforeIt;
+			}
 			linkedIt.asNode()->next_ptr = nullptr;
 			previousNodeByIndex[linkedIndex] = INVALID_INDEX;
 		}
@@ -254,6 +246,9 @@ public: // definitions
 				IndexType nextIndex = indexByNodeUnchecked(nextIt.asNode());
 				previousNodeByIndex[nextIndex] = INVALID_INDEX;
 			}
+			else {
+				before_end = begin_ptr;
+			}
 
 			linkedIt.asNode()->next_ptr = nullptr;
 		}
@@ -265,7 +260,7 @@ public: // definitions
 	}
 
 	bool unlink(iterator linkedIt){
-		IndexType linkedIndex = indexByNode(linkedIt);
+		IndexType linkedIndex = indexByIterator(linkedIt);
 		if(linkedIndex == INVALID_INDEX){
 			return false;
 		}
@@ -274,39 +269,26 @@ public: // definitions
 
 	}
 
-	iterator previousNodeUnchecked(IndexType linkedIndex){
-		return iterator(&nodes[previousNodeByIndex[linkedIndex]]);
-	}
 
-	iterator previousNode(IndexType linkedIndex){
+	iterator previousIterator(IndexType linkedIndex){
 		return linkedIndex < BUFFER_SIZE ? previousNodeUnchecked(linkedIndex) : end();
 	}
-	iterator previousNode(iterator linkedIt){
-		IndexType linkedIndex = indexByNode(linkedIt);
+	iterator previousIterator(iterator linkedIt){
+		IndexType linkedIndex = indexByIterator(linkedIt);
 		
 		return linkedIndex != INVALID_INDEX ? previousNodeUnchecked(linkedIndex) : end();
 	}
 
-	bool validateNode(const Node* node){
-		return node < &nodes[0] || node >= &nodes[BUFFER_END_INDEX];
-	}
 
-	bool isInvalidNode(const Node* node) const{
-		return node < &nodes[0] || node >= &nodes[BUFFER_END_INDEX];
-	}
-	IndexType indexByNodeUnchecked(const Node* node) const {
-		return node - &nodes[0];
-	}
-
-	IndexType indexByNode(const_iterator it) const {
-		if(isInvalidNode(it.asNode())){
+	IndexType indexByIterator(const_iterator it) const {
+		if(isInvalidNode(it)){
 			return INVALID_INDEX;
 		}
 		return indexByNodeUnchecked(it.asNode());
 		
 	}
 
-	iterator nodeByIndex(IndexType nodeIdx){
+	iterator iteratorByIndex(IndexType nodeIdx){
 		if(nodeIdx >= BUFFER_END_INDEX){
 			return end();
 		}
@@ -322,8 +304,27 @@ public: // definitions
 	const Nodes& getNodesRaw(){
 		return nodes;
 	}
+	public: // operators
+	iterator operator[](IndexType index) {
+		return iteratorByIndex(index);
+	}
+	const_iterator operator[](IndexType index) const {
+		return nodeByIndex(index);
+	}
+	protected: // member functions
+	IndexType indexByNodeUnchecked(const Node* node) const {
+		return node - &nodes[0];
+	}
 
-	//private:
+	iterator previousNodeUnchecked(IndexType linkedIndex){
+		return iterator(&nodes[previousNodeByIndex[linkedIndex]]);
+	}
+	bool isInvalidNode(const_iterator nodeIt) const{
+		return nodeIt.asNode() < &nodes[0] || nodeIt.asNode() >= &nodes[BUFFER_END_INDEX];
+	}
+
+
+	private: // member varuabkes
 	Nodes nodes;
 	iterator begin_ptr = iterator(&nodes[BUFFER_END_INDEX]);
 	iterator before_end = iterator(beforeBegin());
