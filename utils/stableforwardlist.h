@@ -5,17 +5,18 @@
 #include "typehelpers.h"
 
 namespace utils {
-class StableForwardList{
-	using T = uint16_t;
-	static constexpr size_t N = 12;
+template<size_t N, typename T, bool INCLUDE_PREVIOUS_LINK, bool DISABLE_SAFETY_CHECKS = false>
+class StableLinkedListBase{
 public: // definitions
 	using IndexType = typename utils::FittingUnsignedInt<N>::type;
 	using SizeType = IndexType;
 public: // constants
-	static constexpr IndexType INVALID_INDEX = (utils::NumericLimits<IndexType>::max)();
+	static constexpr bool IS_LINKED_LIST  = INCLUDE_PREVIOUS_LINK;
+	static constexpr bool IS_FORWARD_LIST = !IS_LINKED_LIST;
 	static constexpr SizeType BUFFER_SIZE = N;
 	static constexpr SizeType BUFFER_BEGIN_INDEX = 0;
 	static constexpr SizeType BUFFER_END_INDEX = BUFFER_SIZE;
+	static constexpr IndexType INVALID_INDEX = BUFFER_END_INDEX;
 
 public: // definitions
 	
@@ -41,16 +42,16 @@ public: // definitions
 		Node* next_ptr = nullptr;
 
 
-		friend StableForwardList;
+		friend StableLinkedListBase;
 	};
 
-	template<typename T>
+	template<typename T_NodeType>
 	class NodeIterator
 	{
 	public:
-		using value_type = T;
-		using pointer = T*;
-		using reference = T&;
+		using value_type = T_NodeType;
+		using pointer = T_NodeType*;
+		using reference = T_NodeType&;
 
 		constexpr NodeIterator() : node_ptr(nullptr) {}
 		constexpr NodeIterator(const NodeIterator<typename remove_const<value_type>::type>& other) : node_ptr(other.node_ptr) {}
@@ -99,7 +100,7 @@ public: // definitions
 
 	protected:
 		Node* node_ptr;
-		friend StableForwardList;
+		friend StableLinkedListBase;
 	};
 	
 
@@ -122,7 +123,7 @@ public: // definitions
 
 	
 	public: // member functions
-	StableForwardList(){}
+	StableLinkedListBase(){}
 
 	inline iterator begin(){
 		return begin_ptr;
@@ -156,20 +157,23 @@ public: // definitions
 
 	inline bool link_after(iterator beforeIt, iterator linkedIt){
 		iterator endIt = end();
-		if(isInvalidNode(linkedIt)){
-			return false;
+		if(!DISABLE_SAFETY_CHECKS){
+			if(isInvalidNode(linkedIt)){
+				return false;
+			}
 		}
-		bool isLinked = linkedIt.asNode()->isLinked();
 		
 		if(beforeIt != beforeBegin()){
-			if(isInvalidNode(beforeIt)){
-				return false;
-			}
-			if(beforeIt.asNode()->isLinked() == false){
-				return false;
-			}
-			if(isLinked){
-				unlink(linkedIt);
+			if(!DISABLE_SAFETY_CHECKS){
+				if(isInvalidNode(beforeIt)){
+					return false;
+				}
+				if(beforeIt.asNode()->isLinked() == false){
+					return false;
+				}
+				if(linkedIt.asNode()->isLinked()){
+					unlink(linkedIt);
+				}
 			}
 
 			Node* nextNode = linkedIt.asNode()->next_ptr = beforeIt.asNode()->next_ptr;
@@ -179,28 +183,43 @@ public: // definitions
 
 			IndexType linkedIndex = indexByNodeUnchecked(linkedIt.asNode());
 
-
-			if(nextNode != endIt.asNode()){
-				IndexType nextIndex = indexByNodeUnchecked(nextNode);
-				previousNodeByIndex[linkedIndex] = previousNodeByIndex[nextIndex];
-				previousNodeByIndex[nextIndex] = linkedIndex;
+			if constexpr(IS_LINKED_LIST){
+				if(nextNode != endIt.asNode()){
+					IndexType nextIndex = indexByNodeUnchecked(nextNode);
+					previousNodeByIndex[linkedIndex] = previousNodeByIndex[nextIndex];
+					previousNodeByIndex[nextIndex] = linkedIndex;
+				}
+				else {
+					previousNodeByIndex[linkedIndex] = indexByNodeUnchecked(beforeIt.asNode());
+					before_end = linkedIt;
+				}
 			}
 			else {
-				previousNodeByIndex[linkedIndex] = indexByNodeUnchecked(beforeIt.asNode());
-				before_end = linkedIt;
+				if(nextNode == endIt.asNode()){
+					before_end = linkedIt;
+				}
 			}
 		}
 		else {
-			if(isLinked){
-				unlink(linkedIt);
+			if(!DISABLE_SAFETY_CHECKS){
+				if(linkedIt.asNode()->isLinked()){
+					unlink(linkedIt);
+				}
 			}
 			Node* nextNode = linkedIt.asNode()->next_ptr = begin_ptr.asNode();
 			begin_ptr = linkedIt;
-			if(nextNode != endIt.asNode()){
-				previousNodeByIndex[indexByNodeUnchecked(linkedIt.asNode())] = previousNodeByIndex[indexByNodeUnchecked(nextNode)];
+			if constexpr(IS_LINKED_LIST){
+				if(nextNode != endIt.asNode()){
+					previousNodeByIndex[indexByNodeUnchecked(linkedIt.asNode())] = previousNodeByIndex[indexByNodeUnchecked(nextNode)];
+				}
+				else {
+					before_end = linkedIt;
+				}
 			}
-			else {
-				before_end = linkedIt;
+			else{
+				if(nextNode == endIt.asNode()){
+					before_end = linkedIt;
+				}
 			}
 		}
 
@@ -208,46 +227,62 @@ public: // definitions
 		
 	}
 
-	inline bool unlink_after(iterator beforeIt, iterator linkedIt){
+	inline bool unlink_after(iterator beforeIt){
 		iterator endIt = end();
-		if(linkedIt == beforeBegin() || linkedIt == endIt){
-			return false;
-		}
-		
+				
 		if(beforeIt != beforeBegin()){
-			if(isInvalidNode(beforeIt)){
+			if(!DISABLE_SAFETY_CHECKS){
+				if(isInvalidNode(beforeIt)){
+					return false;
+				}
+			}
+			iterator linkedIt = iterator(beforeIt.asNode()->next_ptr);
+			if(linkedIt == endIt){
 				return false;
 			}
-			if(beforeIt.asNode()->next_ptr != linkedIt.asNode()){
-				return false;
-			}
-			
 			
 			Node* nextNode = beforeIt.asNode()->next_ptr = linkedIt.asNode()->next_ptr;
 			
 			//Node* nextNode = linkedIt.asNode()->next_ptr;
-			IndexType linkedIndex = indexByNodeUnchecked(linkedIt.asNode());
-			if(nextNode != endIt.asNode()){
-				IndexType nextIndex = indexByNodeUnchecked(nextNode);
-				previousNodeByIndex[nextIndex] = previousNodeByIndex[linkedIndex];
+			if constexpr(IS_LINKED_LIST){
+				IndexType linkedIndex = indexByNodeUnchecked(linkedIt.asNode());
+				if(nextNode != endIt.asNode()){
+					IndexType nextIndex = indexByNodeUnchecked(nextNode);
+					previousNodeByIndex[nextIndex] = previousNodeByIndex[linkedIndex];
+				}
+				else {
+					before_end = beforeIt;
+				}
+				previousNodeByIndex[linkedIndex] = INVALID_INDEX;
 			}
 			else {
-				before_end = beforeIt;
+				if(nextNode == endIt.asNode()){
+					before_end = beforeIt;
+				}
 			}
+			
+
 			linkedIt.asNode()->next_ptr = nullptr;
-			previousNodeByIndex[linkedIndex] = INVALID_INDEX;
 		}
 		else {
-			if(begin() != linkedIt){
+			iterator linkedIt = begin_ptr;
+			if(linkedIt == endIt){
 				return false;
 			}
 			iterator nextIt = begin_ptr = iterator(linkedIt.asNode()->next_ptr);
-			if(nextIt != endIt){
-				IndexType nextIndex = indexByNodeUnchecked(nextIt.asNode());
-				previousNodeByIndex[nextIndex] = INVALID_INDEX;
+			if constexpr(IS_LINKED_LIST){
+				if(nextIt != endIt){
+					IndexType nextIndex = indexByNodeUnchecked(nextIt.asNode());
+					previousNodeByIndex[nextIndex] = INVALID_INDEX;
+				}
+				else {
+					before_end = begin_ptr;
+				}
 			}
 			else {
-				before_end = begin_ptr;
+				if(nextIt == endIt){
+					before_end = begin_ptr;
+				}
 			}
 
 			linkedIt.asNode()->next_ptr = nullptr;
@@ -258,25 +293,101 @@ public: // definitions
 		return true;
 		//unlink_after()
 	}
-
 	bool unlink(iterator linkedIt){
-		IndexType linkedIndex = indexByIterator(linkedIt);
-		if(linkedIndex == INVALID_INDEX){
-			return false;
+		
+		if constexpr(IS_LINKED_LIST){
+			IndexType linkedIndex = indexByIterator(linkedIt);
+			if(linkedIndex == INVALID_INDEX){
+				return false;
+			}
+			IndexType perviousIndex = previousNodeByIndex[linkedIndex];
+			if(perviousIndex == INVALID_INDEX){
+				return false;
+			}
+			unlink_after(perviousIndex == INVALID_INDEX ? begin() : iterator(&nodes[perviousIndex]));
 		}
-		unlink_after(previousNodeUnchecked(linkedIndex), linkedIt);
+		else {
+			
+			if(isInvalidNode(linkedIt)){
+				return false;
+			}
+			if(!linkedIt.asNode()->isLinked()){
+				return false;
+			}
+			iterator endIt = end();
+			
+			for(iterator beforeIt = begin(); beforeIt != endIt; ++beforeIt){
+				if(beforeIt.asNode()->next_ptr == linkedIt.asNode()){
+					unlink_after(beforeIt);
+					return true;
+				}
+			}
+		}
+		
+		return true;
+
+	}
+	bool unlinkUnchecked(iterator linkedIt){
+		
+		if constexpr(IS_LINKED_LIST){
+			IndexType linkedIndex = indexByIterator(linkedIt);
+			if(linkedIndex == INVALID_INDEX){
+				return false;
+			}
+			IndexType perviousIndex = previousNodeByIndex[linkedIndex];
+			if(perviousIndex == INVALID_INDEX){
+				return false;
+			}
+			unlink_after(iterator(&nodes[perviousIndex]));
+		}
+		else {
+			
+			if(isInvalidNode(linkedIt)){
+				return false;
+			}
+			if(!linkedIt.asNode()->isLinked()){
+				return false;
+			}
+			iterator endIt = end();
+			
+			for(iterator beforeIt = begin(); beforeIt != endIt; ++beforeIt){
+				if(beforeIt.asNode()->next_ptr == linkedIt.asNode()){
+					unlink_after(beforeIt);
+				}
+			}
+		}
+		
 		return true;
 
 	}
 
 
+	//template<typename = utils::enable_if_t<IS_LINKED_LIST>>
 	iterator previousIterator(IndexType linkedIndex){
-		return linkedIndex < BUFFER_SIZE ? previousNodeUnchecked(linkedIndex) : end();
+		if(linkedIndex < BUFFER_SIZE){
+			return end();
+		}
+		Node* linkedNode = &nodes[linkedIndex];
+		if(linkedNode->isLinked()){
+			return end();
+		}
+		if constexpr(IS_LINKED_LIST){
+					
+			return previousNodeUnchecked(linkedIndex);
+		}
+		else {
+			return previousNodeUnchecked(iterator(linkedNode));
+		}
 	}
+	
 	iterator previousIterator(iterator linkedIt){
-		IndexType linkedIndex = indexByIterator(linkedIt);
-		
-		return linkedIndex != INVALID_INDEX ? previousNodeUnchecked(linkedIndex) : end();
+		if constexpr(IS_LINKED_LIST){
+			IndexType linkedIndex = indexByIterator(linkedIt);
+			return linkedIndex != INVALID_INDEX ? previousNodeUnchecked(linkedIndex) : end();
+		}
+		else {
+			return isInvalidNode(linkedIt) ? end() : previousNodeUnchecked(linkedIt);
+		}
 	}
 
 
@@ -294,7 +405,7 @@ public: // definitions
 		}
 		return iterator(&nodes[nodeIdx]);
 	}
-	const_iterator nodeByIndex(IndexType nodeIdx) const {
+	const_iterator iteratorByIndex(IndexType nodeIdx) const {
 		if(nodeIdx >= BUFFER_END_INDEX){
 			return cend();
 		}
@@ -309,15 +420,40 @@ public: // definitions
 		return iteratorByIndex(index);
 	}
 	const_iterator operator[](IndexType index) const {
-		return nodeByIndex(index);
+		return iteratorByIndex(index);
 	}
 	protected: // member functions
 	IndexType indexByNodeUnchecked(const Node* node) const {
 		return node - &nodes[0];
 	}
-
 	iterator previousNodeUnchecked(IndexType linkedIndex){
-		return iterator(&nodes[previousNodeByIndex[linkedIndex]]);
+		if constexpr (IS_LINKED_LIST){
+			IndexType previousIndex = previousNodeByIndex[linkedIndex];
+			
+			return previousIndex != INVALID_INDEX ? iterator(&nodes[previousIndex]) : beforeBegin();
+		}
+		else {
+			return previousNodeUnchecked(&nodes[linkedIndex]);
+		}
+	}
+	iterator previousNodeUnchecked(iterator linkedIt){
+		if constexpr(IS_LINKED_LIST){
+			return previousNodeUnchecked(indexByNodeUnchecked(linkedIt));
+		}
+		else {
+			if(linkedIt == begin()){
+				return beforeBegin();
+			}
+			iterator endIt = end();
+			
+			for(iterator beforeIt = begin(); beforeIt != endIt; ++beforeIt){
+				if(beforeIt.asNode()->next_ptr == linkedIt.asNode()){
+					return beforeIt;
+				}
+			}
+			return endIt;
+		}
+		
 	}
 	bool isInvalidNode(const_iterator nodeIt) const{
 		return nodeIt.asNode() < &nodes[0] || nodeIt.asNode() >= &nodes[BUFFER_END_INDEX];
@@ -328,10 +464,16 @@ public: // definitions
 	Nodes nodes;
 	iterator begin_ptr = iterator(&nodes[BUFFER_END_INDEX]);
 	iterator before_end = iterator(beforeBegin());
-	InitializedArrayWrapper<BUFFER_SIZE, IndexType> previousNodeByIndex{INVALID_INDEX};
+	InitializedArrayWrapper<IS_LINKED_LIST ? BUFFER_SIZE : 0, IndexType> previousNodeByIndex{INVALID_INDEX};
 	
 	
 };
+template<size_t N, typename T, bool DISABLE_SAFETY_CHECKS = false>
+using StableForwardList = StableLinkedListBase<N, T, false, DISABLE_SAFETY_CHECKS>;
+template<size_t N, typename T, bool DISABLE_SAFETY_CHECKS = false>
+using StableLinkedList = StableLinkedListBase<N, T, true, DISABLE_SAFETY_CHECKS>;
+
+
 }// utils
 
 
