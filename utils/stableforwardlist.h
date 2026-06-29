@@ -20,7 +20,9 @@ public: // constants
 
 public: // definitions
 	
-	
+	struct DefaultClear {
+    	void operator()(T&) const noexcept {}
+	};
 
 	struct Node{
 		inline bool isLinked() const {
@@ -35,7 +37,7 @@ public: // definitions
 			return next_ptr;
 		}
 		
-		T value = ForceNoInit<T>{};		
+		T value{};		
 	private:		
 		constexpr Node() {}
 		constexpr Node(const T& value, Node* next_ptr) : value(value), next_ptr(next_ptr) {}
@@ -67,6 +69,16 @@ public: // definitions
 		{
 			return &node_ptr->value;
 		}
+		constexpr reference operator*()
+		{
+			return node_ptr->value;
+		}
+
+		constexpr pointer operator->()
+		{
+			return &node_ptr->value;
+		}
+
 
 		// pre-increment
 		NodeIterator& operator++()
@@ -222,27 +234,27 @@ public: // definitions
 				}
 			}
 		}
-
+		++linkedCount;
 		return true;
 		
 	}
 
-	inline bool unlink_after(iterator beforeIt){
+	inline iterator unlink_after(iterator beforeIt){
 		iterator endIt = end();
-				
+		iterator nextIt;
 		if(beforeIt != beforeBegin()){
 			if(!DISABLE_SAFETY_CHECKS){
 				if(isInvalidNode(beforeIt)){
-					return false;
+					return endIt;
 				}
 			}
 			iterator linkedIt = iterator(beforeIt.asNode()->next_ptr);
 			if(linkedIt == endIt){
-				return false;
+				return endIt;
 			}
 			
 			Node* nextNode = beforeIt.asNode()->next_ptr = linkedIt.asNode()->next_ptr;
-			
+			nextIt = iterator(nextNode);
 			//Node* nextNode = linkedIt.asNode()->next_ptr;
 			if constexpr(IS_LINKED_LIST){
 				IndexType linkedIndex = indexByNodeUnchecked(linkedIt.asNode());
@@ -267,9 +279,9 @@ public: // definitions
 		else {
 			iterator linkedIt = begin_ptr;
 			if(linkedIt == endIt){
-				return false;
+				return endIt;
 			}
-			iterator nextIt = begin_ptr = iterator(linkedIt.asNode()->next_ptr);
+			nextIt = begin_ptr = iterator(linkedIt.asNode()->next_ptr);
 			if constexpr(IS_LINKED_LIST){
 				if(nextIt != endIt){
 					IndexType nextIndex = indexByNodeUnchecked(nextIt.asNode());
@@ -289,77 +301,61 @@ public: // definitions
 		}
 		
 		
-
-		return true;
+		--linkedCount;
+		return nextIt;
 		//unlink_after()
 	}
-	bool unlink(iterator linkedIt){
-		
+	iterator unlink(iterator linkedIt){
+		iterator endIt = end();
 		if constexpr(IS_LINKED_LIST){
 			IndexType linkedIndex = indexByIterator(linkedIt);
 			if(linkedIndex == INVALID_INDEX){
-				return false;
+				return endIt;
 			}
 			IndexType perviousIndex = previousNodeByIndex[linkedIndex];
 			if(perviousIndex == INVALID_INDEX){
-				return false;
+				return endIt;
 			}
 			unlink_after(perviousIndex == INVALID_INDEX ? begin() : iterator(&nodes[perviousIndex]));
 		}
 		else {
 			
 			if(isInvalidNode(linkedIt)){
-				return false;
+				return endIt;
 			}
 			if(!linkedIt.asNode()->isLinked()){
-				return false;
+				return endIt;
 			}
-			iterator endIt = end();
+			
 			
 			for(iterator beforeIt = begin(); beforeIt != endIt; ++beforeIt){
 				if(beforeIt.asNode()->next_ptr == linkedIt.asNode()){
-					unlink_after(beforeIt);
-					return true;
+					return unlink_after(beforeIt);
 				}
 			}
 		}
 		
-		return true;
+		return endIt;
 
 	}
-	bool unlinkUnchecked(iterator linkedIt){
-		
-		if constexpr(IS_LINKED_LIST){
-			IndexType linkedIndex = indexByIterator(linkedIt);
-			if(linkedIndex == INVALID_INDEX){
-				return false;
-			}
-			IndexType perviousIndex = previousNodeByIndex[linkedIndex];
-			if(perviousIndex == INVALID_INDEX){
-				return false;
-			}
-			unlink_after(iterator(&nodes[perviousIndex]));
-		}
-		else {
-			
-			if(isInvalidNode(linkedIt)){
-				return false;
-			}
-			if(!linkedIt.asNode()->isLinked()){
-				return false;
-			}
-			iterator endIt = end();
-			
-			for(iterator beforeIt = begin(); beforeIt != endIt; ++beforeIt){
-				if(beforeIt.asNode()->next_ptr == linkedIt.asNode()){
-					unlink_after(beforeIt);
-				}
-			}
-		}
-		
-		return true;
 
+	template<typename CallableClear = DefaultClear>
+	void clearAfter(iterator beforeIt, CallableClear customClear = {}){
+		iterator endIt = end();
+		iterator removeIt = prepareClear(beforeIt);
+				
+		while(removeIt != endIt){
+			customClear(*removeIt);
+			(removeIt++).asNode()->next_ptr = nullptr;
+			--linkedCount;
+		}
 	}
+
+	template<typename CallableClear = DefaultClear>
+	void clear(CallableClear customClear = {}){
+		clearAfter(beforeBegin(), customClear);
+	}
+
 
 
 	//template<typename = utils::enable_if_t<IS_LINKED_LIST>>
@@ -415,6 +411,12 @@ public: // definitions
 	const Nodes& getNodesRaw(){
 		return nodes;
 	}
+
+	SizeType size() {
+		return linkedCount;
+	}
+	static constexpr SizeType capacity() { return BUFFER_SIZE; }
+
 	public: // operators
 	iterator operator[](IndexType index) {
 		return iteratorByIndex(index);
@@ -459,11 +461,30 @@ public: // definitions
 		return nodeIt.asNode() < &nodes[0] || nodeIt.asNode() >= &nodes[BUFFER_END_INDEX];
 	}
 
+	iterator prepareClear(iterator beforeIt){
+		iterator beginIt = begin();
+		iterator endIt = end();
+		iterator removeIt;
+		if(beginIt == endIt){
+			removeIt = endIt;
+		}
+		else if(beforeIt == beforeBegin()){
+			removeIt = beginIt;
+			begin_ptr = endIt;
+		}
+		else {
+			removeIt = iterator(beforeIt.asNode()->next_ptr);
+			beforeIt.asNode()->next_ptr = end().asNode();
+		}
+		return removeIt;
+	}
+
 
 	private: // member varuabkes
 	Nodes nodes;
 	iterator begin_ptr = iterator(&nodes[BUFFER_END_INDEX]);
 	iterator before_end = iterator(beforeBegin());
+	SizeType linkedCount = 0;
 	InitializedArrayWrapper<IS_LINKED_LIST ? BUFFER_SIZE : 0, IndexType> previousNodeByIndex{INVALID_INDEX};
 	
 	
