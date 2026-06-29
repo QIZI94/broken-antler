@@ -14,7 +14,7 @@
 
 
 #include "utils/fixedforwardlist.h"
-
+#include "utils/stableforwardlist.h"
 
 
 
@@ -497,19 +497,21 @@ class DimmingPWM {
 	struct DimmingState{
 		volatile int32_t accumulatedBrightness;
 		volatile int32_t tickRate;
-		volatile BrightnessType targetBrightness;
+		volatile BrightnessType targetBrightness = 0;
 		LedID ledId;
 
 	};
-	using DimmingStateList = utils::FixedForwardList<SCHEDULED_PWM::LED_COUNT, DimmingState>;
-	using Node = typename DimmingStateList::Node;
 
+	using DimmingStableStateList = utils::StableForwardList<SCHEDULED_PWM::LED_COUNT, DimmingState, true>;
+	using StableNode = typename DimmingStableStateList::Node;
+	using StableIterator = typename DimmingStableStateList::iterator;
+	using StableIndex = typename DimmingStableStateList::IndexType;
 	public: // constants
 	static constexpr uint8_t SHIFT_SCALE = 16;
 
 	public: // member functions 
 
-	template<typename DimmingStateList::SizeType N_STATES_TO_PROCESS = DimmingStateList::BUFFER_SIZE>
+	template<typename DimmingStableStateList::SizeType N_STATES_TO_PROCESS = DimmingStableStateList::BUFFER_SIZE>
 	bool process(ScheduledPWMImpl& schedPWM){
 		SCHEDULED_PWM_TRACEBACK_ENTRY
 		//Serial.println("-----------------------");
@@ -517,7 +519,7 @@ class DimmingPWM {
 		/*if(paused){
 			return false;
 		}
-		else*/ if(currentDimmingState == dimmingStates.end()){
+		else*/ if(currentDimmingStableState == dimmingStableStates.end().asNode()){
 			return true;
 		}
 		//interrupts();
@@ -526,7 +528,7 @@ class DimmingPWM {
 			
 			//noInterrupts();
 			
-			volatile DimmingState& dimmingState = currentDimmingState->value;
+			volatile DimmingState& dimmingState = currentDimmingStableState->value;
 			BrightnessType currentBrightness = dimmingState.accumulatedBrightness >> SHIFT_SCALE;
 			BrightnessType targetBrightness = dimmingState.targetBrightness;
 			LedID ledId = dimmingState.ledId;
@@ -536,36 +538,35 @@ class DimmingPWM {
 			bool instantChange = dimmingState.tickRate == 0;
 			
 			if(instantChange){
-				currentDimmingState = dimmingStates.removeAfter(previousDimmingState);
+				currentDimmingStableState = dimmingStableStates.unlink_after(StableIterator(previousDimmingStableState)).asNode();
 			}
 			else if(dimmingState.tickRate > 0 && currentBrightness >= dimmingState.targetBrightness){
 				currentBrightness = targetBrightness;
-				currentDimmingState = dimmingStates.removeAfter(previousDimmingState);
+				currentDimmingStableState = dimmingStableStates.unlink_after(StableIterator(previousDimmingStableState)).asNode();
 				
 			}
 			else if(dimmingState.tickRate < 0 && currentBrightness <= dimmingState.targetBrightness){
 				currentBrightness = dimmingState.targetBrightness;
-				currentDimmingState = dimmingStates.removeAfter(previousDimmingState);
+				currentDimmingStableState = dimmingStableStates.unlink_after(StableIterator(previousDimmingStableState)).asNode();
 
 			}
 			else {
 				if(N_STATES_TO_PROCESS == 1){
-					dimmingState.accumulatedBrightness += dimmingState.tickRate * dimmingStates.size();
+					dimmingState.accumulatedBrightness += dimmingState.tickRate * dimmingStableStates.size();
 				}
 				else {
 					dimmingState.accumulatedBrightness += dimmingState.tickRate;
 				}
-				previousDimmingState = currentDimmingState;
-				currentDimmingState = currentDimmingState->nextNode();
+				previousDimmingStableState = currentDimmingStableState;
+				currentDimmingStableState = currentDimmingStableState->nextNode();
 			}
 			
 			
 
-			if(currentDimmingState == dimmingStates.end()){
-				currentDimmingState = dimmingStates.begin();
-				previousDimmingState = dimmingStates.beforeBegin();
+			if(currentDimmingStableState == dimmingStableStates.end().asNode()){
+				currentDimmingStableState = dimmingStableStates.begin().asNode();
+				previousDimmingStableState = dimmingStableStates.beforeBegin().asNode();
 				shouldBreak = true;
-				//break;
 			}
 			//interrupts();
 			
@@ -583,27 +584,19 @@ class DimmingPWM {
 
 		return false;
 	}
-
-	void setDimming(LedID ledId, BrightnessType startBrightness, BrightnessType targetBrightness, uint16_t ticks){
+	void setDimming(StableIndex ledIndex, LedID ledId, BrightnessType startBrightness, BrightnessType targetBrightness, uint16_t ticks){
 		SCHEDULED_PWM_TRACEBACK_ENTRY
-		Node* end = dimmingStates.end();
 
-		Node* found = nullptr;
+
 		noInterrupts();
-		Node* searchedDimmingState = dimmingStates.begin();
-		interrupts();
-		while(1){
-			noInterrupts();
-			if(searchedDimmingState == end){
-				break;
-			}
-			if(searchedDimmingState->value.ledId == ledId){
-				found = searchedDimmingState;
-				break;
-			}
-			searchedDimmingState = searchedDimmingState->nextNode();
-			interrupts();
+
+		StableIterator dimmingStateIt = dimmingStableStates.iteratorByIndex(ledIndex);
+		if(dimmingStateIt == dimmingStableStates.end()){
+			return;
 		}
+		
+		interrupts();
+
 		decltype(DimmingState::tickRate) newTickRate;
 		decltype(DimmingState::accumulatedBrightness) newAccumulatedBrightness;
 		
@@ -618,48 +611,41 @@ class DimmingPWM {
 		}
 
 		noInterrupts();
-		if(found == nullptr){
-			dimmingStates.insertAfter(
-				dimmingStates.beforeBegin(),
-				DimmingState{
-					.accumulatedBrightness = newAccumulatedBrightness,
-					.tickRate = newTickRate,
-					.targetBrightness = targetBrightness,
-					.ledId = ledId
-				}
+		if(!dimmingStateIt.asNode()->isLinked()){
+			
+
+			dimmingStableStates.link_after(
+				dimmingStableStates.beforeBegin(),
+				dimmingStateIt
 			);
-			currentDimmingState = dimmingStates.begin();
-		}
-		else {
-			DimmingState& reused = found->value;
-			reused.accumulatedBrightness = newAccumulatedBrightness;
-			reused.tickRate = newTickRate;
-			reused.targetBrightness = targetBrightness;
-			reused.ledId = ledId;
+			currentDimmingStableState = dimmingStableStates.begin().asNode();
 			
 		}
+
+		*dimmingStateIt = DimmingState{
+			.accumulatedBrightness = newAccumulatedBrightness,
+			.tickRate = newTickRate,
+			.targetBrightness = targetBrightness,
+			.ledId = ledId
+		};
 		interrupts();
 	}
 
-	Node* findDimmingHandle(LedID ledId){
-		Node* end = dimmingStates.end();
-		Node* searchedDimmingState = dimmingStates.begin();
-		Node* beforeSearchedDimmingState = dimmingStates.beforeBegin();
-		for(Node* searchedDimmingState = dimmingStates.begin(); searchedDimmingState != end; searchedDimmingState = searchedDimmingState->nextNode()){
-			if(searchedDimmingState->value.ledId == ledId){
-				searchedDimmingState = beforeSearchedDimmingState;
-				break;
-			}
-			beforeSearchedDimmingState = searchedDimmingState;
+	getCurrentBrightness(StableIndex ledIndex){
+		StableIterator ledStateIt = dimmingStableStates[ledIndex];
+		if(ledStateIt == dimmingStableStates.end()){
+			return 0;
 		}
-		return searchedDimmingState;
+		return ledStateIt->accumulatedBrightness >> SHIFT_SCALE;
 	}
 
-	void stopDimming(Node* beforeHandle){
+
+	/*void stopDimming(LedID ledId){
+		StableIterator  = dimmingStableStates.iteratorByIndex(ledId);
 		if(beforeHandle != nullptr && beforeHandle != dimmingStates.end()){
 			dimmingStates.removeAfter(beforeHandle);
 		}
-	}
+	}*/
 
 	void setPaused(bool paused){
 		this->paused = paused;
@@ -670,15 +656,24 @@ class DimmingPWM {
 	}
 
 	void clear(){
-		currentDimmingState = dimmingStates.end();
-		previousDimmingState = dimmingStates.beforeBegin();
-		dimmingStates.clear();
+		dimmingStableStates.clear(
+			[](DimmingState& state){
+				state.accumulatedBrightness = 0;
+				state.targetBrightness = 0;
+				state.tickRate = 0;
+			}
+		);
+		
+		currentDimmingStableState = dimmingStableStates.begin().asNode();
+		previousDimmingStableState = dimmingStableStates.beforeBegin().asNode();
+		
 	}
 
 	private:
-	DimmingStateList dimmingStates;
-	volatile Node* currentDimmingState = dimmingStates.begin();
-	volatile Node* previousDimmingState = dimmingStates.beforeBegin();
+
+	DimmingStableStateList dimmingStableStates;
+	volatile StableNode* currentDimmingStableState = dimmingStableStates.begin().asNode();
+	volatile StableNode* previousDimmingStableState = dimmingStableStates.beforeBegin().asNode();
 	volatile bool paused = false;
 };
 

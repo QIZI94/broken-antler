@@ -52,7 +52,6 @@ struct LedAnimationStateTimer : public TimedExecution1ms{
 	const AnimationDef* animationDef = nullptr;
 	AnimationDirection direction = AnimationDirection::BACKWARD;
 	AnimationRunModeState state = AnimationRunModeState::STOP;
-	LedBrightness lastBrightness = LedBrightness::from(0);
 	
 };
 
@@ -65,6 +64,27 @@ static LedAnimationStateTimer ledAnimationTimers[size_t(LedPosition::NUM_OF_ALL_
 static TimedExecution1ms audioLinkSamplerTimer;
 static uint8_t animationSpeedShift = 0;
 static volatile uint8_t activeAnimationsTimersCount = 0;
+
+LedsDimming::DimmingStableStateList::IndexType ledIdToLedIndex(LedsDimming::StableIndex ledId){
+	
+	switch(ledId){
+		case 3:  return 0;
+		case 11: return 1;
+		case 7:  return 2;
+		case 4:  return 3;
+		case 9:  return 4;
+		case 8:  return 5;
+		case 13: return 6;
+		case 12: return 7;
+		case 15: return 8;
+		case 14: return 9;
+		case 17: return 10;
+		case 16: return 11;
+		
+	}
+}
+
+
 
 
 
@@ -100,19 +120,19 @@ static void handleLedAnimation(TimedExecution1ms& timer){
 		
 		//uint8_t previousBlueBrightness = ledsPWM.computeBrightness(led.red.pin,BufferIndex::Writable);
 		//uint8_t previousRedBrightness = ledsPWM.computeBrightness(led.blue.pin, BufferIndex::Writable);
-		uint8_t previousBlueBrightness = processedAnimation.lastBrightness.blue;
-		uint8_t previousRedBrightness = processedAnimation.lastBrightness.red;
+		LedsDimming::StableIndex redLedIndex = ledIdToLedIndex(led.red.pin);
+		LedsDimming::StableIndex blueLedIndex = ledIdToLedIndex(led.blue.pin);
+
 		uint8_t blueBrightness = led.blue.convertBrightness(currentStep->brightness.blue);
 		uint8_t redBrightness = led.red.convertBrightness(currentStep->brightness.red);
 		//blueBrightness = blueBrightness < 2 ? blueBrightness : blueBrightness - DIMMING_PROCESSING_INTERVAL;
 		//redBrightness = redBrightness < 2 ? redBrightness : redBrightness - DIMMING_PROCESSING_INTERVAL;
 		
 		uint16_t ticks = DURATION_TO_TICKS(duration - (duration < DIMMING_PROCESSING_INTERVAL ? 0 : DIMMING_PROCESSING_INTERVAL));
-		ledsDimming.setDimming(led.red.pin, previousRedBrightness == 255 ? ledsPWM.computeBrightness(led.red.pin) : previousRedBrightness, redBrightness, ticks);
-		ledsDimming.setDimming(led.blue.pin,  previousBlueBrightness == 255 ? ledsPWM.computeBrightness(led.blue.pin) : previousBlueBrightness, blueBrightness, ticks);
+		ledsDimming.setDimming(redLedIndex, led.red.pin, ledsDimming.getCurrentBrightness(redLedIndex), redBrightness, ticks);
+		ledsDimming.setDimming(blueLedIndex, led.blue.pin,ledsDimming.getCurrentBrightness(blueLedIndex), blueBrightness, ticks);
 
-		processedAnimation.lastBrightness.blue = blueBrightness;
-		processedAnimation.lastBrightness.red = redBrightness;
+
 		//lastActiveIndex =  ledsPWM.getActiveIndex();
 		//SoftPWMSetFadeTime(led.blue.pin, duration, duration);
 		//SoftPWMSetFadeTime(led.red.pin, duration, duration);
@@ -196,7 +216,7 @@ static void startAnimation(const AnimationDef* animation, bool runOnce = false){
 			
 
 			LedAnimationStateTimer& animStateTimer = ledAnimationTimers[animationIndex];
-			animStateTimer.lastBrightness = LedBrightness::from(0);
+
 
 			if(steps.empty()){
 				continue;
@@ -270,7 +290,7 @@ static void changeAnimation(const AnimationDef* animation, bool runOnce = false,
 			const LedDef& currentLed = LED_AllLeds[uint8_t(loadedAnimDef.ledPosition)];
 			currentLed.blue.pin;
 			LedAnimationStateTimer& animStateTimer = ledAnimationTimers[animationIndex];
-			animStateTimer.lastBrightness = LedBrightness::from(255);
+			//animStateTimer.lastBrightness = LedBrightness::from(255);
 
 			/*LedsDimming::Node* foundExistingDimmingHandle = ledsDimming.findDimmingHandle(currentLed.blue.pin);
 			if(foundExistingDimmingHandle != ledsDimming.dimmingStates.beforeBegin()){
@@ -330,9 +350,10 @@ static void changeAnimation(const AnimationDef* animation, bool runOnce = false,
 			//SoftPWMSetFadeTime(led.blue.pin, 0, 0);
 			//SoftPWMSetFadeTime(led.red.pin, 0, 0);
 			//setAnimationLed(led, LedBrightness::from(0), true);
-
-			ledsDimming.setDimming(led.red.pin, 0, 0, DURATION_TO_TICKS(0));
-			ledsDimming.setDimming(led.blue.pin, 0, 0, DURATION_TO_TICKS(0));
+			LedsDimming::StableIndex redLedIndex = ledIdToLedIndex(led.red.pin);
+			LedsDimming::StableIndex blueLedIndex = ledIdToLedIndex(led.blue.pin);
+			ledsDimming.setDimming(redLedIndex, led.red.pin, 0, 0, DURATION_TO_TICKS(0));
+			ledsDimming.setDimming(blueLedIndex, led.blue.pin, 0, 0, DURATION_TO_TICKS(0));
 		}
 	}
 	activeAnimationsTimersCount = activeCount;
@@ -402,14 +423,14 @@ void initAnimations(){
 	ledsPWM.begin();
 	initAudioSampler(A7, 32);
 	setAudioSampleHandler(audioLinkHandler);
-	/*dimmingProcessingTimer.setup(
+	dimmingProcessingTimer.setup(
 		[](TimedExecution1ms&){
-			ledsDimming.process<1>(ledsPWM);
+			ledsDimming.process(ledsPWM);
 			dimmingProcessingTimer.restart(DIMMING_PROCESSING_INTERVAL);
 			//Serial.println("~~~~HERE");
 		},
 		1
-	);*/
+	);
 	/*audioLinkSamplerTimer.setup(
 		[](TimedExecution1ms&){
 			handleAudioSampling();
@@ -474,10 +495,10 @@ void handleAnimations(){
 		newBassAnimations = nullptr;
 		interrupts();
 	}
-	if(dimmingTimer.isDown()){
-		ledsDimming.process(ledsPWM);
-		dimmingTimer.restart(DIMMING_PROCESSING_INTERVAL);
-	}
+	//if(dimmingTimer.isDown()){
+	//	ledsDimming.process(ledsPWM);
+	//	dimmingTimer.restart(DIMMING_PROCESSING_INTERVAL);
+	//}
 	//setAnimationLed(LED_LeftFront, 80, true);
 	//setAnimationLed(LED_LeftMiddle, 80, true);
 	//setAnimationLed(LED_LeftBack, 80, true);
