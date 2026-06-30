@@ -523,6 +523,7 @@ class DimmingPWM {
 			return true;
 		}
 		//interrupts();
+		++stepsBehind;
 		bool shouldBreak = false;
 		for(size_t processedCounter = 0; processedCounter < N_STATES_TO_PROCESS; ++processedCounter){
 			
@@ -551,8 +552,8 @@ class DimmingPWM {
 
 			}
 			else {
-				if(N_STATES_TO_PROCESS == 1){
-					dimmingState.accumulatedBrightness += dimmingState.tickRate * dimmingStableStates.size();
+				if(N_STATES_TO_PROCESS < DimmingStableStateList::capacity()){
+					dimmingState.accumulatedBrightness += dimmingState.tickRate * stepsBehind;//* (dimmingStableStates.size() / N_STATES_TO_PROCESS);
 				}
 				else {
 					dimmingState.accumulatedBrightness += dimmingState.tickRate;
@@ -566,6 +567,7 @@ class DimmingPWM {
 			if(currentDimmingStableState == dimmingStableStates.end().asNode()){
 				currentDimmingStableState = dimmingStableStates.begin().asNode();
 				previousDimmingStableState = dimmingStableStates.beforeBegin().asNode();
+				stepsBehind = 0;
 				shouldBreak = true;
 			}
 			//interrupts();
@@ -588,14 +590,14 @@ class DimmingPWM {
 		SCHEDULED_PWM_TRACEBACK_ENTRY
 
 
-		noInterrupts();
+		//noInterrupts();
 
 		StableIterator dimmingStateIt = dimmingStableStates.iteratorByIndex(ledIndex);
 		if(dimmingStateIt == dimmingStableStates.end()){
 			return;
 		}
 		
-		interrupts();
+		//interrupts();
 
 		decltype(DimmingState::tickRate) newTickRate;
 		decltype(DimmingState::accumulatedBrightness) newAccumulatedBrightness;
@@ -610,7 +612,7 @@ class DimmingPWM {
 			newAccumulatedBrightness = ((int32_t)startBrightness) << SHIFT_SCALE;
 		}
 
-		noInterrupts();
+		//noInterrupts();
 		if(!dimmingStateIt.asNode()->isLinked()){
 			
 
@@ -628,7 +630,7 @@ class DimmingPWM {
 			.targetBrightness = targetBrightness,
 			.ledId = ledId
 		};
-		interrupts();
+		//interrupts();
 	}
 
 	getCurrentBrightness(StableIndex ledIndex){
@@ -674,6 +676,7 @@ class DimmingPWM {
 	DimmingStableStateList dimmingStableStates;
 	volatile StableNode* currentDimmingStableState = dimmingStableStates.begin().asNode();
 	volatile StableNode* previousDimmingStableState = dimmingStableStates.beforeBegin().asNode();
+	typename DimmingStableStateList::IndexType stepsBehind = 0;
 	volatile bool paused = false;
 };
 
