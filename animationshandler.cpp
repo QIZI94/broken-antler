@@ -11,7 +11,7 @@
 
 #define PROGMEM_READ_STRUCTURE(p_dst, p_src) do { memcpy_P(p_dst, p_src, sizeof(*p_dst));} while (0)
 
-#define TICKS_PROCESSING_SCALER (0)
+#define TICKS_PROCESSING_SCALER (1)
 #define DURATION_TO_TICKS(duration) (((duration)>>TICKS_PROCESSING_SCALER))
 
 enum class AnimationRunModeState : uint8_t {
@@ -425,8 +425,8 @@ void initAnimations(){
 	setAudioSampleHandler(audioLinkHandler);
 	dimmingProcessingTimer.setup(
 		[](TimedExecution1ms&){
-			ledsDimming.process<4>(ledsPWM);
-			dimmingProcessingTimer.restart(DIMMING_PROCESSING_INTERVAL);
+			ledsDimming.process<6>(ledsPWM);
+			dimmingProcessingTimer.restart(1);
 			//Serial.println("~~~~HERE");
 		},
 		1

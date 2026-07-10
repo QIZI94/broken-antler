@@ -493,10 +493,11 @@ class DimmingPWM {
 	using LedID = typename ScheduledPWMImpl::LedID;
 	using BrightnessType = typename ScheduledPWMImpl::BrightnessType;
 
-
+	//using SequentialAccumulationStep = typename utils::StableForwardList<SCHEDULED_PWM::LED_COUNT, uint8_t, true>::IndexType;
 	struct DimmingState{
 		volatile int32_t accumulatedBrightness;
 		volatile int32_t tickRate;
+		//volatile SequentialAccumulationStep lastSequentialAccumulation;
 		volatile BrightnessType targetBrightness = 0;
 		LedID ledId;
 
@@ -523,12 +524,11 @@ class DimmingPWM {
 			return true;
 		}
 		//interrupts();
-		++stepsBehind;
 		bool shouldBreak = false;
 		for(size_t processedCounter = 0; processedCounter < N_STATES_TO_PROCESS; ++processedCounter){
 			
 			//noInterrupts();
-			
+			//++sequentialAccumulationStep;
 			volatile DimmingState& dimmingState = currentDimmingStableState->value;
 			BrightnessType currentBrightness = dimmingState.accumulatedBrightness >> SHIFT_SCALE;
 			BrightnessType targetBrightness = dimmingState.targetBrightness;
@@ -552,12 +552,15 @@ class DimmingPWM {
 
 			}
 			else {
-				if(N_STATES_TO_PROCESS < DimmingStableStateList::capacity()){
+				/*if(false && N_STATES_TO_PROCESS < DimmingStableStateList::capacity()){
+					SequentialAccumulationStep stepsBehind = SequentialAccumulationStep(sequentialAccumulationStep - dimmingState.lastSequentialAccumulation);
 					dimmingState.accumulatedBrightness += dimmingState.tickRate * stepsBehind;//* (dimmingStableStates.size() / N_STATES_TO_PROCESS);
+					dimmingState.lastSequentialAccumulation = sequentialAccumulationStep;
 				}
 				else {
-					dimmingState.accumulatedBrightness += dimmingState.tickRate;
-				}
+					
+				}*/
+				dimmingState.accumulatedBrightness += dimmingState.tickRate;
 				previousDimmingStableState = currentDimmingStableState;
 				currentDimmingStableState = currentDimmingStableState->nextNode();
 			}
@@ -567,7 +570,6 @@ class DimmingPWM {
 			if(currentDimmingStableState == dimmingStableStates.end().asNode()){
 				currentDimmingStableState = dimmingStableStates.begin().asNode();
 				previousDimmingStableState = dimmingStableStates.beforeBegin().asNode();
-				stepsBehind = 0;
 				shouldBreak = true;
 			}
 			//interrupts();
@@ -627,13 +629,14 @@ class DimmingPWM {
 		*dimmingStateIt = DimmingState{
 			.accumulatedBrightness = newAccumulatedBrightness,
 			.tickRate = newTickRate,
+			//.lastSequentialAccumulation = sequentialAccumulationStep,
 			.targetBrightness = targetBrightness,
 			.ledId = ledId
 		};
 		//interrupts();
 	}
 
-	getCurrentBrightness(StableIndex ledIndex){
+	BrightnessType getCurrentBrightness(StableIndex ledIndex){
 		StableIterator ledStateIt = dimmingStableStates[ledIndex];
 		if(ledStateIt == dimmingStableStates.end()){
 			return 0;
@@ -676,7 +679,7 @@ class DimmingPWM {
 	DimmingStableStateList dimmingStableStates;
 	volatile StableNode* currentDimmingStableState = dimmingStableStates.begin().asNode();
 	volatile StableNode* previousDimmingStableState = dimmingStableStates.beforeBegin().asNode();
-	typename DimmingStableStateList::IndexType stepsBehind = 0;
+	//SequentialAccumulationStep sequentialAccumulationStep = 0;
 	volatile bool paused = false;
 };
 
