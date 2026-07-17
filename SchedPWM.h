@@ -567,7 +567,8 @@ class DimmingPWM {
 			
 			
 
-			if(currentDimmingStableState == dimmingStableStates.end().asNode()){
+			if(currentDimmingStableState == dimmingStableStates.end().asNode() || currentDimmingStableState == dimmingStableStates.beforeBegin().asNode()){
+
 				currentDimmingStableState = dimmingStableStates.begin().asNode();
 				previousDimmingStableState = dimmingStableStates.beforeBegin().asNode();
 				shouldBreak = true;
