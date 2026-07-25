@@ -140,11 +140,11 @@ public: // functions
 		return timer;
 	}
 private: // functions
-    void exec(){
+    void exec() volatile {
         if(execPtr != nullptr){
             if(timer.isDown()){
 				disable();
-                execPtr(*this);
+                execPtr((TimedExecution&)*this);
             }
         }
     }
@@ -201,7 +201,7 @@ public: // functions
 	}
 
 private: // variables 
-	StaticTimerBase timer;
+	volatile StaticTimerBase timer;
 
 	
     volatile TimedExecution* prev = nullptr;
