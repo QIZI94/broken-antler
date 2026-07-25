@@ -100,6 +100,38 @@ struct make_index_sequence<0, I...>
 template<unsigned N>
 using make_index_sequence_t = typename make_index_sequence<N>::type;
 
+template<typename K, typename V>
+struct KeyValuePair{
+	K key;
+	V value;
+};
+template<typename K, typename V>
+inline constexpr KeyValuePair<K, V> MakeKeyValuePair(const K& key, const V& value){
+	return KeyValuePair<K, V>{.key = key, .value = value};
+}
+
+template<typename Callable>
+class Deferred
+{
+public:
+    constexpr Deferred(Callable callable)
+        : callable(callable)
+    {
+    }
+
+    ~Deferred()
+    {
+        callable();
+    }
+
+    Deferred(const Deferred&) = delete;
+    Deferred& operator=(const Deferred&) = delete;
+
+private:
+    Callable callable;
+};
+template<typename Callable>
+Deferred(Callable) -> Deferred<Callable>;
 
 template<size_t N, typename T>
 struct InitializedArrayWrapper
