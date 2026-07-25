@@ -2,17 +2,22 @@
 #include "Arduino.h"
 
 #include "timer.h"
-
+#include "utils/typehelpers.h"
 static constexpr uint8_t TIMER_COMPARE_1MS = 244;
 
 volatile static uint32_t rtcOffset = 0;
-
+volatile bool stillProcessing = false;
 // triggers roughly 1 ms (1024 us) at overflow
-ISR(TIMER0_COMPB_vect) {
-	// enable other interrupts to nest
-	// in order to give this interrupt used for software timers lower priority,
-	// than more time sensitive ones like Software PWM
-	interrupts();
+// enable other interrupts to nest
+// in order to give this interrupt used for software timers lower priority,
+// than more time sensitive ones like Software PWM
+ISR(TIMER0_COMPB_vect, ISR_NOBLOCK) {
+	TIMSK0 &= ~_BV(OCIE0B);  // disable this specific interrupt
+	utils::Deferred deferReEnableThisTimer(
+		[](){
+			TIMSK0 |= _BV(OCIE0B);  // re-enable this interrupt
+		}
+	);
 	TimedExecution1ms::StaticTimerBase::tickAllTimers();
   	TimedExecution1ms::executeAllTimedExecutions();
 }
