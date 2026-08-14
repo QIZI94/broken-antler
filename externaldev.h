@@ -43,12 +43,12 @@ private: // member functions
 	
 private: // member variables
 	//UniformMessage::MessageData deferredMessages[DEFERRED_MESSAGES_COUNT];
-	UniformMessage::TimeType messageRepeatLastTime = 0;
-	UniformMessage::LatencyType transmissionLatency = 0;
-	DeferredRepeatMask deferredMessageSendAndAckMask = 0x0000;
-	DeferredAtLeastOnceMask deferredSendAtLeastOnceMask = 0x00;
-	UniformMessage::Type deferredRequestType = UniformMessage::Type::NONE;
-	bool initialized = false;
+	volatile UniformMessage::TimeType messageRepeatLastTime = 0;
+	volatile UniformMessage::LatencyType transmissionLatency = 0;
+	volatile DeferredRepeatMask deferredMessageSendAndAckMask = 0x0000;
+	volatile DeferredAtLeastOnceMask deferredSendAtLeastOnceMask = 0x00;
+	volatile UniformMessage::Type deferredRequestType = UniformMessage::Type::NONE;
+	volatile bool initialized = false;
 
 };
 inline MessageManager<UARTMessageDriver, UARTMessageHandler> uartMessageManager;

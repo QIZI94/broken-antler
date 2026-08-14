@@ -2,9 +2,13 @@
 #include "animations.h"
 #include "animationshandler.h"
 #include "buttonhandler.h"
+#include "audiosampler.h"
 #include "timer.h"
 #include "eepromstorage.h"
+#include "utils/variant.h"
+#include "utils/orderedenumeratedarray.h"
 
+#include "externaldev.h"
 
 static const PROGMEM AnimationStep breathingAnimSteps[] = {
     
@@ -512,8 +516,49 @@ static const PROGMEM AnimationDef idleFlow[] = DEFINE_ANIMATION(
 );
 
 
+static constexpr utils::KeyValuePair<AnimationPreset, const AnimationDef*> animationEnumeratedList[] = {
+	{AnimationPreset::ALL_LEDS_ON, 				allLedsOnAnim},
+	{AnimationPreset::LEFT_RIGHT, 				leftRightFlowAnim},
+	{AnimationPreset::SLOW_BREATHING, 			slowBreathingAnimation},
+	{AnimationPreset::LEFT_RIGHT_FLOW, 			leftRightFlowAnim},
+	{AnimationPreset::DMB_BEAT, 				leftRightFlowAnim},
+	{AnimationPreset::FLOW, 					leftRightFlowAnim},
+	{AnimationPreset::SEGMENTED_FLOW, 			leftRightFlowAnim},
+	{AnimationPreset::IDLE_FLOW, 				leftRightFlowAnim},
+	{AnimationPreset::IDLE_FLOW_COLOR_ROTATION, idleFlowColorRotation},
+	{AnimationPreset::VIU_VIU_POLICE, 			viuviuPoliceAnimation},
+	{AnimationPreset::TURN_OFF_LEDS, 			turnOffLedsAnimation},
+	
+};
+
+static constexpr utils::KeyValuePair<AudioLinkIdlePreset, const AnimationDef*> idleAnimationEnumeratedList[] = {
+	{AudioLinkIdlePreset::IDLE_FLOW_COLOR_ROTATION, idleFlowColorRotation},	
+};
+
+static constexpr utils::KeyValuePair<AudioLinkBassPreset, const AnimationDef*> bassAnimationEnumeratedList[] = {
+	{AudioLinkBassPreset::FAST_FLOW, 				bassAnimation},	
+	{AudioLinkBassPreset::FAST_FLOW_RED, 			bassRedAnimation},
+	{AudioLinkBassPreset::FAST_FLOW_BLUE, 			bassBlueAnimation},
+	{AudioLinkBassPreset::REPEAT_FAST_FLOW, 		repeatedBassAnimation},	
+	{AudioLinkBassPreset::REPEAT_FAST_FLOW_RED, 	repeatedRedBassAnimation},
+	{AudioLinkBassPreset::REPEAT_FAST_FLOW_BLUE, 	repeatedBlueBassAnimation},
+};
 
 
+
+
+static const auto FUTURE_animationList = utils::MakeOrderedArrayFromEnumeratedArray(animationEnumeratedList);
+static const auto FUTURE_idleAnimationList = utils::MakeOrderedArrayFromEnumeratedArray(idleAnimationEnumeratedList);
+static const auto FUTURE_bassAnimationList = utils::MakeOrderedArrayFromEnumeratedArray(bassAnimationEnumeratedList);
+
+static constexpr utils::KeyValuePair<AudioLinkBassPreset, AudioLinkBassPreset> bassPresetPicker[] = {
+	{AudioLinkBassPreset::FAST_FLOW, AudioLinkBassPreset::REPEAT_FAST_FLOW},
+	{AudioLinkBassPreset::FAST_FLOW, AudioLinkBassPreset::REPEAT_FAST_FLOW},
+	{AudioLinkBassPreset::FAST_FLOW, AudioLinkBassPreset::REPEAT_FAST_FLOW},
+	{AudioLinkBassPreset::FAST_FLOW_RED, AudioLinkBassPreset::REPEAT_FAST_FLOW_RED},
+	{AudioLinkBassPreset::FAST_FLOW_BLUE, AudioLinkBassPreset::REPEAT_FAST_FLOW_BLUE}
+};
+static constexpr uint8_t bassPresetPickerSize = LENGTH_OF_CONST_ARRAY(bassPresetPicker);
 
 static const AnimationDef* animationList[] = {
 	allLedsOnAnim,
@@ -592,6 +637,8 @@ union AnimationStatePersistentStorage {
 constexpr uint16_t storeTime = 7000;
 
 static TimedExecution1ms timedPressTimer;
+static TimedExecution1ms delayAnimationStartTimer;
+static TimedExecution1ms audioLinkSamplerTimer;
 volatile static size_t selectionIndex = 0;
 volatile static bool longPressed = false;
 volatile static bool timedPress = false;
@@ -600,6 +647,11 @@ volatile AnimationStatePersistentStorage animationStatePersistentStorage{0};
 volatile bool enableStoreTimer = false;
 static StaticTimer1ms lastAnimationStoreTimer;
 
+
+struct AudioLinkSettings{
+	uint16_t bassVolumeThreshold;
+	uint8_t earlyRepeatTriggerCount;
+} static audioLinkSettings;
 
 
 const static LedBrightness eyesBrightnessLevels[] = {
@@ -611,6 +663,25 @@ const static LedBrightness eyesBrightnessLevels[] = {
 static constexpr uint8_t eyesBrightnessLevelsLength = LENGTH_OF_CONST_ARRAY(eyesBrightnessLevels);
 static const LedBrightness* lastEyesBrightnessPtr = &eyesBrightnessLevels[0];
 
+Variant<AnimationPreset, AudioLinkIdlePreset, AudioLinkBassPreset> currentAnimationTrigger;
+
+void delayedAnimationHandler(TimedExecution1ms&){
+	switch(currentAnimationTrigger){
+		case currentAnimationTrigger.indexOf<AnimationPreset>():
+			setAnimation(animationList[uint8_t(currentAnimationTrigger.get<AnimationPreset>())]);
+			break;
+		case currentAnimationTrigger.indexOf<AudioLinkIdlePreset>():
+			//setAudioLink(idleAnimationList[uint8_t(currentAnimationTrigger.get<AudioLinkIdlePreset>())]);
+			break;
+		case currentAnimationTrigger.indexOf<AudioLinkBassPreset>():
+			triggerActionAnimation(FUTURE_bassAnimationList[uint8_t(currentAnimationTrigger.get<AudioLinkBassPreset>())]);
+			//playBassAnimation(bassAnimationList[uint8_t(currentAnimationTrigger.get<AudioLinkBassPreset>())]);
+			break;
+		default:
+			break;
+	}
+	//currentAnimationTrigger.reset();
+}
 
 static void timedLateStartAudioLink(TimedExecution1ms&){
 	uint16_t bassVolumeThreshold;
@@ -626,8 +697,17 @@ static void timedLateStartAudioLink(TimedExecution1ms&){
 
 			break;
 	}
-
-	setAudioLink(idleFlowColorRotation, 0, audioLinkAnimations, bassVolumeThreshold);
+	setupActionAnimation(idleFlowColorRotation);
+	audioLinkSettings.bassVolumeThreshold = bassVolumeThreshold;
+	audioLinkSettings.earlyRepeatTriggerCount = 0;
+	audioLinkSamplerTimer.setup(
+		[](TimedExecution1ms&){
+			handleAudioSampling();
+			audioLinkSamplerTimer.restart(1); // 1 ms
+		},
+		1000
+	);
+	//setAudioLink(idleFlowColorRotation, 0, audioLinkAnimations, bassVolumeThreshold);
 }
 
 static void startAudioLinkPreset(AudioLinkSensitivity bassVolumeMode){
@@ -651,6 +731,7 @@ static void startAudioLinkPreset(AudioLinkSensitivity bassVolumeMode){
 static void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 	bool startStoreTimer = false;
 	if(buttonEvent == ButtonEvent::RELEASED && !longPressed && !timedPress){
+		audioLinkSamplerTimer.disable();
 		setAnimation(animationList[selectionIndex]);
 		animationStatePersistentStorage.selectionIndex = selectionIndex;
 		animationStatePersistentStorage.audioLinkOn = AudioLinkSensitivity::DISABLED;
@@ -726,8 +807,22 @@ static void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 		lastAnimationStoreTimer.restart(storeTime);
 	}
 }
+static void audioLinkHandler(uint16_t avgSample, uint16_t avgOverTime, uint16_t baseline);
+
+
+
 
 void initAnimationsSwitcher(){
+	initAudioSampler(A7, 32);
+	setAudioSampleHandler(audioLinkHandler);
+	/*simulateBassTimer.setup([](TimedExecution1ms& timer){
+			uartMessageManager.handler.sendDeferredMessage(UniformMessage::Type::TIMED_EVENT);
+			timer.restart(100);
+		},
+	1000
+	);*/
+	
+	//startAnimationPreset(AnimationPreset::FLOW, 4);
 	// Perform compile time check for max values supported by EEPROM storage structure
 	static_assert(AudioLinkSensitivity::SENSITIVITY_MODES_COUNT <= AnimationStatePersistentStorage::MaxValueFromBitCount(AnimationStatePersistentStorage::AUDIO_LINK_ON_BIT_COUNT),
 		"amount of sensitivity modes are over maximum EEPROM storage'"
@@ -767,9 +862,32 @@ void initAnimationsSwitcher(){
 
 	analogWrite(LED_Eye.blue.pin, lastEyesBrightnessPtr->blue);
 	analogWrite(LED_Eye.red.pin, lastEyesBrightnessPtr->red);
+
+	// test audiolink
+	//setupActionAnimation(idleFlowColorRotation);
+	/*startAudioLinkPreset(AudioLinkSensitivity::LOW_SENSITIVITY);
+	simulateBassTimer.setup([](TimedExecution1ms& timer){
+			uartMessageManager.handler.sendDeferredMessage(UniformMessage::Type::TIMED_EVENT);
+			//triggerActionAnimation(bassAnimation);
+			triggerAudioLinkBass(AudioLinkBassPreset::FAST_FLOW, 4);
+			timer.restart(2000);
+		},
+	50
+	);*/
+	//tst.restart(2000);
 }
 
 void handleAnimationsPersistentStorage(){
+	/*Serial.print("sim: ");
+	Serial.println(simulateBassTimer.isEnabled());*/
+
+	/*if(tst.isDown()){
+		noInterrupts();
+		triggerActionAnimation(bassAnimation);
+		tst.restart(2000);
+		interrupts();
+	}*/
+
 	if(enableStoreTimer == true && lastAnimationStoreTimer.isDown()){
 		if(!storeToEEPROM(animationStatePersistentStorage.value)){
 			Serial.print(F("Failed to "));
@@ -781,3 +899,62 @@ void handleAnimationsPersistentStorage(){
 	}
 }
 
+void startAnimationPreset(AnimationPreset animPreset, uint16_t delayMs){
+	currentAnimationTrigger = animPreset;
+	delayAnimationStartTimer.setup(delayedAnimationHandler, delayMs);
+}
+
+void startAudioLink(AudioLinkIdlePreset idlePreset, uint16_t delayMs){
+	currentAnimationTrigger = idlePreset;
+	delayAnimationStartTimer.setup(delayedAnimationHandler, delayMs);
+}
+
+void triggerAudioLinkBass(AudioLinkBassPreset bassPreset, uint16_t delayMs){
+	currentAnimationTrigger = bassPreset;
+	delayAnimationStartTimer.setup(delayedAnimationHandler, delayMs);
+}
+
+static uint8_t bassAnimationSwitchCounter = 0;
+static void audioLinkHandler(uint16_t avgSample, uint16_t avgOverTime, uint16_t baseline){
+
+	static LowPassFilterFixed bassFilter3(120.0, 1024);
+	static HighPassFilterFixed highBassFilter3(100.0, 1024);
+	
+	//int filteredLowpass250 = (int)bassFilter1.filter((float)rawSample);
+	int16_t filteredLowpass80 = bassFilter3.filter(highBassFilter3.filter(avgSample) + baseline);
+	//filteredLowpass80 = bassFilter3.filter(filteredLowpass80);
+	//filteredLowpass80 = bassFilter3.filter(filteredLowpass80);
+	uint16_t lowPass120 = filteredLowpass80 < 0 ? 0 : filteredLowpass80;
+	//Serial.println("here");
+	//triggerActionAnimation(bassAnimation);
+	if(((lowPass120 > baseline && (lowPass120 - baseline) > audioLinkSettings.bassVolumeThreshold))){
+			if(delayAnimationStartTimer.isEnabled()){
+				return;
+			}
+			if(
+				getCurrentAnimation() == idleFlowColorRotation
+			){
+				triggerAudioLinkBass(bassPresetPicker[bassAnimationSwitchCounter].key, 4);
+				uartMessageManager.handler.sendDeferredMessage(UniformMessage::Type::TIMED_EVENT);
+				//triggerActionAnimation(FUTURE_bassAnimationList[size_t(bassPresetPicker[bassAnimationSwitchCounter].key)]);
+				//triggerAudioLinkBass(AudioLinkBassPreset::FAST_FLOW, 4);
+			}
+			// repeat bass animation
+			else if(getActiveAnimationTimersCount() <= audioLinkSettings.earlyRepeatTriggerCount){		
+				if(
+					getCurrentAnimation() != idleFlowColorRotation
+				){
+					triggerAudioLinkBass(bassPresetPicker[bassAnimationSwitchCounter].value, 4);
+					uartMessageManager.handler.sendDeferredMessage(UniformMessage::Type::TIMED_EVENT);
+					//triggerActionAnimation(FUTURE_bassAnimationList[size_t(bassPresetPicker[bassAnimationSwitchCounter].value)]);					
+				}
+			}
+			
+
+	}
+
+	
+	if(bassPresetPickerSize <= ++bassAnimationSwitchCounter){
+		bassAnimationSwitchCounter = 0;
+	}
+}

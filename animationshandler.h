@@ -105,7 +105,12 @@ inline constexpr const AudioLinkBassAnimation AUDIO_LINK_ANIM_END = {.bassAnimat
 extern void initAnimations();
 extern void handleAnimations();
 extern void setAnimation(const AnimationDef* newAnimation, bool runOnce = false);
+extern void setupActionAnimation(const AnimationDef* idleAnimation);
+extern void triggerActionAnimation(const AnimationDef* actionAnimation);
 extern void setAudioLink(const AnimationDef* idleAnimation, uint8_t earlyRepeatTriggerCount, const AudioLinkBassAnimation* newBassAnimations, uint16_t bassVolumeThreshold);
+
+extern uint8_t getActiveAnimationTimersCount();
+extern const AnimationDef* getCurrentAnimation();
 
 extern const AnimationDef audioLinkFeature[];
 

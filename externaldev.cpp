@@ -135,7 +135,8 @@ bool UARTMessageHandler::buildMessage(UniformMessage &messageOut, UniformMessage
 			messageOut.data.timeSync.newTime = currentRTC;
 			break;
 		case UniformMessage::Type::TIMED_EVENT:
-			messageOut.data.timedEvent.atTime = currentRTC;
+			messageOut.data.timedEvent.atTime = currentRTC + 4000;
+			messageOut.data.timedEvent.event = 0x02;
 			break;
 		
 		default:
@@ -190,7 +191,15 @@ void HTU21DTempHumSensor::begin() volatile {
 void HTU21DTempHumSensor::end() volatile {
 	lastRequest = UNINITIALIZED;
 }
+static uint8_t fanSpeed = 0;
+void setFanDuty(uint8_t percent)
+{
+    if (percent > 100)
+        percent = 100;
 
+    // Invert because of the NPN transistor
+    OCR1B = (ICR1 * (100 - percent)) / 100;
+}
 void HTU21DTempHumSensor::communicateWithSensor(){
 	if(!requestDelay.isDown()){
 		return;
@@ -200,7 +209,12 @@ void HTU21DTempHumSensor::communicateWithSensor(){
 	{
 		case Request::NO_REQUEST:
 			//uartMessageManager.handler.requestDeferredMessage(UniformMessage::Type::TIME_SYNC);
-			uartMessageManager.handler.sendDeferredMessage(UniformMessage::Type::TIMED_EVENT);
+			//uartMessageManager.handler.sendDeferredMessage(UniformMessage::Type::TIMED_EVENT);
+			fanSpeed += 25;
+			if(fanSpeed > 100){
+				fanSpeed = 0;
+			}
+			setFanDuty(fanSpeed);
 			if(sendRequest(Request::CMD_TEMP_NOHOLD, 50)){
 				return;
 			}
@@ -261,6 +275,16 @@ bool HTU21DTempHumSensor::readRequest(uint16_t& raw)
 
 
 void initExternalDevices(){
+	pinMode(10, OUTPUT);
+
+    // Fast PWM, TOP = ICR1
+    TCCR1A = _BV(COM1B1) | _BV(WGM11);
+    TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS10);
+
+    // 16 MHz / (1 * (639 + 1)) = 25 kHz
+    ICR1 = 639;
+
+
 	Wire.begin();
 	Wire.setClock(400000);
 	Wire.setTimeout(2);
