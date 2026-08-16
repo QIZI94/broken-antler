@@ -5,7 +5,6 @@
 #include "audiosampler.h"
 #include "timer.h"
 #include "eepromstorage.h"
-#include "utils/variant.h"
 #include "utils/orderedenumeratedarray.h"
 
 #include "externaldev.h"
@@ -521,10 +520,10 @@ static constexpr utils::KeyValuePair<AnimationPreset, const AnimationDef*> anima
 	{AnimationPreset::LEFT_RIGHT, 				leftRightFlowAnim},
 	{AnimationPreset::SLOW_BREATHING, 			slowBreathingAnimation},
 	{AnimationPreset::LEFT_RIGHT_FLOW, 			leftRightFlowAnim},
-	{AnimationPreset::DMB_BEAT, 				leftRightFlowAnim},
-	{AnimationPreset::FLOW, 					leftRightFlowAnim},
-	{AnimationPreset::SEGMENTED_FLOW, 			leftRightFlowAnim},
-	{AnimationPreset::IDLE_FLOW, 				leftRightFlowAnim},
+	{AnimationPreset::DMB_BEAT, 				dmbBeatAnimation},
+	{AnimationPreset::FLOW, 					flowAnimation},
+	{AnimationPreset::SEGMENTED_FLOW, 			segmentedFlowAnim},
+	{AnimationPreset::IDLE_FLOW, 				idleFlow},
 	{AnimationPreset::IDLE_FLOW_COLOR_ROTATION, idleFlowColorRotation},
 	{AnimationPreset::VIU_VIU_POLICE, 			viuviuPoliceAnimation},
 	{AnimationPreset::TURN_OFF_LEDS, 			turnOffLedsAnimation},
@@ -560,7 +559,7 @@ static constexpr utils::KeyValuePair<AudioLinkBassPreset, AudioLinkBassPreset> b
 };
 static constexpr uint8_t bassPresetPickerSize = LENGTH_OF_CONST_ARRAY(bassPresetPicker);
 
-static const AnimationDef* animationList[] = {
+/*static const AnimationDef* animationList[] = {
 	allLedsOnAnim,
 	leftRightAnim,
 	slowBreathingAnimation,
@@ -575,8 +574,8 @@ static const AnimationDef* animationList[] = {
 	
 	turnOffLedsAnimation
 
-};
-constexpr size_t animationListLength = LENGTH_OF_CONST_ARRAY(animationList);
+};*/
+constexpr size_t animationListLength = LENGTH_OF_CONST_ARRAY(FUTURE_animationList);
 
 static const PROGMEM AudioLinkBassAnimation audioLinkAnimations[] = DEFINE_AUDIO_LINK_BASS_ANIM(
 	AudioLinkBassAnimation{.bassAnimation = bassAnimation, .repeatingBassAnimations = repeatedBassAnimation},
@@ -663,14 +662,16 @@ const static LedBrightness eyesBrightnessLevels[] = {
 static constexpr uint8_t eyesBrightnessLevelsLength = LENGTH_OF_CONST_ARRAY(eyesBrightnessLevels);
 static const LedBrightness* lastEyesBrightnessPtr = &eyesBrightnessLevels[0];
 
-Variant<AnimationPreset, AudioLinkIdlePreset, AudioLinkBassPreset> currentAnimationTrigger;
+AnimationPresetVariant currentAnimationTrigger;
+AudioLinkIdlePreset lastAudioLinkIdlePreset = AudioLinkIdlePreset::IDLE_FLOW_COLOR_ROTATION;
 
 void delayedAnimationHandler(TimedExecution1ms&){
 	switch(currentAnimationTrigger){
 		case currentAnimationTrigger.indexOf<AnimationPreset>():
-			setAnimation(animationList[uint8_t(currentAnimationTrigger.get<AnimationPreset>())]);
+			setAnimation(FUTURE_animationList[uint8_t(currentAnimationTrigger.get<AnimationPreset>())]);
 			break;
 		case currentAnimationTrigger.indexOf<AudioLinkIdlePreset>():
+			setupActionAnimation(FUTURE_idleAnimationList[uint8_t(currentAnimationTrigger.get<AudioLinkIdlePreset>())]);
 			//setAudioLink(idleAnimationList[uint8_t(currentAnimationTrigger.get<AudioLinkIdlePreset>())]);
 			break;
 		case currentAnimationTrigger.indexOf<AudioLinkBassPreset>():
@@ -697,7 +698,9 @@ static void timedLateStartAudioLink(TimedExecution1ms&){
 
 			break;
 	}
-	setupActionAnimation(idleFlowColorRotation);
+	startAudioLink(AudioLinkIdlePreset::IDLE_FLOW_COLOR_ROTATION, 4);
+	uartMessageManager.handler.sendDeferredMessage(UniformMessage::Type::TIMED_EVENT);
+	//setupActionAnimation(idleFlowColorRotation);
 	audioLinkSettings.bassVolumeThreshold = bassVolumeThreshold;
 	audioLinkSettings.earlyRepeatTriggerCount = 0;
 	audioLinkSamplerTimer.setup(
@@ -732,7 +735,9 @@ static void buttonSwitchAnimationHandler(ButtonEvent buttonEvent){
 	bool startStoreTimer = false;
 	if(buttonEvent == ButtonEvent::RELEASED && !longPressed && !timedPress){
 		audioLinkSamplerTimer.disable();
-		setAnimation(animationList[selectionIndex]);
+		startAnimationPreset(AnimationPreset(selectionIndex), 4);
+		//setAnimation(animationList[selectionIndex]);
+		uartMessageManager.handler.sendDeferredMessage(UniformMessage::Type::TIMED_EVENT);
 		animationStatePersistentStorage.selectionIndex = selectionIndex;
 		animationStatePersistentStorage.audioLinkOn = AudioLinkSensitivity::DISABLED;
 		startStoreTimer = true;
@@ -830,7 +835,7 @@ void initAnimationsSwitcher(){
 	static_assert((LENGTH_OF_CONST_ARRAY(eyesBrightnessLevels) - 1) <= AnimationStatePersistentStorage::MaxValueFromBitCount(AnimationStatePersistentStorage::EYES_BRIGHTNESS_BIT_COUNT),
 		"eyesBrightness levels selection are over maximum EEPROM storage"
 	);
-	static_assert((LENGTH_OF_CONST_ARRAY(animationList) - 1) <= AnimationStatePersistentStorage::MaxValueFromBitCount(AnimationStatePersistentStorage::SELECTION_INDEX_BIT_COUNT),
+	static_assert((LENGTH_OF_CONST_ARRAY(FUTURE_animationList) - 1) <= AnimationStatePersistentStorage::MaxValueFromBitCount(AnimationStatePersistentStorage::SELECTION_INDEX_BIT_COUNT),
 		"Animations selectionIndex is over maximum EEPROM storage"
 	);
 
@@ -845,7 +850,9 @@ void initAnimationsSwitcher(){
 	}
 	else {
 		selectionIndex = animationStatePersistentStorage.selectionIndex;
-		setAnimation(animationList[selectionIndex]);
+		startAnimationPreset(AnimationPreset(selectionIndex), 4);
+		
+		//setAnimation(FUTURE_animationList[selectionIndex]);
 		++selectionIndex;
 		if(animationListLength <= selectionIndex){
 			selectionIndex = 0;
@@ -912,6 +919,14 @@ void startAudioLink(AudioLinkIdlePreset idlePreset, uint16_t delayMs){
 void triggerAudioLinkBass(AudioLinkBassPreset bassPreset, uint16_t delayMs){
 	currentAnimationTrigger = bassPreset;
 	delayAnimationStartTimer.setup(delayedAnimationHandler, delayMs);
+}
+
+const AnimationPresetVariant& getLastAnimationPreset(){
+	return currentAnimationTrigger;
+}
+
+AudioLinkIdlePreset getLastAudioLinkIdlePreset(){
+	return lastAudioLinkIdlePreset;
 }
 
 static uint8_t bassAnimationSwitchCounter = 0;

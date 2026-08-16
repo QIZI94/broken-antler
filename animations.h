@@ -2,6 +2,26 @@
 #define ANIMATIONS_H
 
 #include <inttypes.h>
+#include "utils/variant.h"
+
+struct Event{
+	enum class Type : uint8_t{
+		LED_ANIMATION,
+		LED_AUDIOLINK,
+	};
+
+	union{
+		struct {
+			Type type			: 2;
+			//uint8_t value	: 5;
+			uint8_t firstValue	: 4;
+			uint8_t secondValue	: 2;
+		};
+		uint8_t event;
+	};
+};
+
+
 enum class AnimationPreset : uint8_t {
 	ALL_LEDS_ON,
 	LEFT_RIGHT,
@@ -33,6 +53,8 @@ enum class AudioLinkBassPreset : uint8_t {
 	REPEAT_FAST_FLOW_BLUE
 };
 
+using AnimationPresetVariant = Variant<AnimationPreset, AudioLinkIdlePreset, AudioLinkBassPreset>;
+
 extern void initAnimationsSwitcher();
 extern void handleAnimationsPersistentStorage();
 
@@ -40,6 +62,9 @@ extern void startAnimationPreset(AnimationPreset animPreset, uint16_t delayMs);
 
 extern void startAudioLink(AudioLinkIdlePreset idlePreset, uint16_t delayMs);
 extern void triggerAudioLinkBass(AudioLinkBassPreset bassPreset, uint16_t delayMs);
+
+extern const AnimationPresetVariant& getLastAnimationPreset();
+extern AudioLinkIdlePreset getLastAudioLinkIdlePreset();
 
 
 

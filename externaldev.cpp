@@ -4,7 +4,7 @@
 
 #include <Arduino.h>
 #include <Wire.h>
-
+#include "animations.h"
 
 ///====== High level UART Communication ======///
 
@@ -135,8 +135,35 @@ bool UARTMessageHandler::buildMessage(UniformMessage &messageOut, UniformMessage
 			messageOut.data.timeSync.newTime = currentRTC;
 			break;
 		case UniformMessage::Type::TIMED_EVENT:
-			messageOut.data.timedEvent.atTime = currentRTC + 4000;
-			messageOut.data.timedEvent.event = 0x02;
+			
+			
+			{
+				messageOut.data.timedEvent.atTime = currentRTC + 4000;
+				Event event;
+				event.event = 0x00;
+				const AnimationPresetVariant& animationPresetVariant = getLastAnimationPreset();
+				switch (animationPresetVariant)
+				{
+					case animationPresetVariant.indexOf<AnimationPreset>():
+						event.type = Event::Type::LED_ANIMATION;
+						event.firstValue = uint8_t(animationPresetVariant.get<AnimationPreset>());
+						/* code */
+						break;
+					case animationPresetVariant.indexOf<AudioLinkBassPreset>():
+						event.firstValue = uint8_t(animationPresetVariant.get<AudioLinkIdlePreset>());
+					case animationPresetVariant.indexOf<AudioLinkIdlePreset>():
+						event.secondValue = uint8_t(getLastAudioLinkIdlePreset());
+						event.type = Event::Type::LED_AUDIOLINK;
+						//event.value = uint8_t(animationPresetVariant.get<AudioLinkBassPreset>());
+						break;
+					default:
+						break;
+				}
+
+				
+				messageOut.data.timedEvent.event = event.event;
+			}
+			
 			break;
 		
 		default:
