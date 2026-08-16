@@ -71,6 +71,7 @@ volatile static uint32_t testTimeTook = 0;
 
 void setup()
 {
+	wdt_enable(WDTO_2S);
 	Serial.begin(250000);
 	Serial.println(F("Begining initialization"));
 	initEEPROM();
@@ -343,6 +344,7 @@ void setup()
   */
   //pinMode(A3, INPUT_PULLUP);
   //attachInterrupt(digitalPinToInterrupt(2), buttonISR, CHANGE);
+  
 }
 
 bool isOn = false;
@@ -413,11 +415,20 @@ void loop()
  //}
  //debugAudioSampler();
  //delay(1);
+  wdt_reset();
   handleAnimations();
   handleAnimationsPersistentStorage();
   communicateWithExternalDevices();
+  /*noInterrupts();
+  uint8_t execCount = TimedExecution1ms::TimedExecutionsCount();
+  uint8_t animCount = getActiveAnimationTimersCount();
+  interrupts();
+  Serial.print("TimerCount: ");
+  Serial.println(execCount);
+  Serial.print("AnimCount: ");
+  Serial.println(animCount);*/
   
-  
+  //Serial.println("NotStuck");
 
   //Serial.println(testTimeTook);
   //delay(2);
