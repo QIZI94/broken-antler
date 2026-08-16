@@ -300,11 +300,22 @@ void initExternalDevices(){
 
 }
 
-
+int16_t lastTemp = 0;
+uint8_t lastHum = 0;
 void communicateWithExternalDevices(){
 	//messageManager.handle();
 	//delay(1);
 	while(uartMessageManager.run() != MessageReceptionState::IDLE);
 	TemperatureHumiditySensor.communicateWithSensor();
+	if(lastTemp == 0 || lastHum == 0){
+		setFanDuty(70);
+	}
+	else if(lastTemp != TemperatureHumiditySensor.getTemperature10() || lastHum != TemperatureHumiditySensor.getHumidity10()){
+		lastTemp = TemperatureHumiditySensor.getTemperature10();
+		lastHum = TemperatureHumiditySensor.getHumidity10();
+		
+		setFanDuty(map(lastTemp + (lastHum >> 3), 15, 35, 0, 100));
+		
+	}
 }
 
